@@ -14,7 +14,7 @@ warnings.filterwarnings('ignore')
 
 class ParkinsonDataLoader:
     """Enhanced data loader for multi-modal Parkinson's datasets"""
-    def __init__(self, base_path='..'):
+    def __init__(self, base_path='.'):
         self.base_path = base_path
         self.data = {}
         
