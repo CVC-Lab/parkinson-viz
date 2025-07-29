@@ -1,0 +1,20 @@
+# IDE and OS-specific files
+.vscode/
+.DS_Store
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Python virtual environment
+# This single line handles the entire 'venv' folder and everything in it.
+venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# You can optionally add a line to ignore large data files if you ever
+# decide to move them inside your project folder.
+# For example:
+# data/
+# *.csv
