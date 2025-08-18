@@ -696,124 +696,12 @@ app.layout = html.Div(style={'fontFamily': 'Arial', 'padding': '20px', 'backgrou
     ),
     
     # Store animation state with proper initialization
-    dcc.Store(id='animation-state', data={'playing': False, 'time_phase': 0})
+    dcc.Store(id='animation-state', data={'playing': True, 'time_phase': 0, 'speed': 1.0}),
+    # Store for selected patient data to avoid constant lookups
+    dcc.Store(id='patient-data-store')
 ])
 
-@app.callback(
-    [Output('motion-silhouette-plot', 'figure'),
-     Output('motion-metrics-display', 'children')],
-    [Input('patient-dropdown', 'value'),
-     Input('motion-test-dropdown', 'value'),
-     Input('animation-speed-slider', 'value'),
-     Input('animation-interval', 'n_intervals')],
-    prevent_initial_call=False
-)
-def update_motion_silhouette(selected_patient, motion_test, animation_speed, n_intervals):
-    print(f"DEBUG: Callback triggered - Patient: {selected_patient}, Test: {motion_test}, Speed: {animation_speed}, Intervals: {n_intervals}")
 
-    time_phase = (n_intervals * animation_speed * 0.2) % (2 * math.pi)  # Faster, more visible
-    
-    # Get patient data
-    patient_data = {}
-    if selected_patient and not df_clean.empty and selected_patient in df_clean['PATNO'].values:
-        patient_row = df_clean[df_clean['PATNO'] == selected_patient].iloc[0]
-        patient_data = patient_row.to_dict()
-    else:
-        if not df_clean.empty:
-            patient_data = {
-                'LA_AMP_U': df_clean['LA_AMP_U'].mean(),
-                'RA_AMP_U': df_clean['RA_AMP_U'].mean(),
-                'SP_U': df_clean['SP_U'].mean(),
-                'ASA_U': df_clean['ASA_U'].mean(),
-                'L_JERK_U': df_clean.get('L_JERK_U', pd.Series([0.02])).mean(),
-                'R_JERK_U': df_clean.get('R_JERK_U', pd.Series([0.02])).mean(),
-            }
-    
-    # Generate motion silhouette
-    try:
-        fig_silhouette, motion_metrics = create_motion_silhouette_plot(patient_data, motion_test or 'gait', time_phase)
-        return fig_silhouette, motion_metrics
-    except Exception as e:
-        print(f"Error in motion silhouette generation: {e}")
-        # Return empty figure and error message
-        empty_fig = go.Figure()
-        empty_fig.add_annotation(text=f"Error generating silhouette: {str(e)}", 
-                                xref="paper", yref="paper", x=0.5, y=0.5)
-        error_msg = html.Div([html.P(f"Error: {str(e)}", style={'color': 'red'})])
-        return empty_fig, error_msg
-
-@app.callback(
-    [Output('main-correlation-plot', 'figure'),
-     Output('bilateral-asymmetry-motion', 'figure'),
-     Output('motion-quality-assessment', 'figure')],
-    [Input('patient-dropdown', 'value'),
-     Input('x-axis-dropdown', 'value'),
-     Input('y-axis-dropdown', 'value')]
-)
-def update_static_visualizations(selected_patient, x_feature, y_feature):
-    """Update static visualizations"""
-    
-    if df_clean.empty:
-        empty_fig = go.Figure()
-        empty_fig.add_annotation(text="No data available", xref="paper", yref="paper", x=0.5, y=0.5)
-        return [empty_fig] * 3
-    
-    # Generate visualizations
-    fig_main = create_enhanced_correlation_plot(df_clean, x_feature, y_feature, selected_patient)
-    fig_bilateral = create_bilateral_asymmetry_motion(df_clean, selected_patient)
-    fig_motion_quality = create_motion_quality_assessment(df_clean, selected_patient)
-    
-    return fig_main, fig_bilateral, fig_motion_quality
-
-@app.callback(
-    Output('gait-cycle-analysis', 'figure'),
-    [Input('patient-dropdown', 'value'),
-     Input('animation-interval', 'n_intervals')]
-)
-def update_gait_cycle_animation(selected_patient, n_intervals):
-    """Update the gait cycle plot with the animation phase line"""
-    if df_clean.empty:
-        empty_fig = go.Figure()
-        empty_fig.add_annotation(text="No data available", xref="paper", yref="paper", x=0.5, y=0.5)
-        return empty_fig
-    
-    # Use the same time_phase logic as the silhouette
-    # The animation_speed slider could also be an Input here for perfect sync, but this is simpler
-    time_phase = (n_intervals * 0.2) % (2 * math.pi) 
-    
-    fig_gait_cycle = create_gait_cycle_analysis(df_clean, selected_patient, time_phase)
-    
-    return fig_gait_cycle
-
-@app.callback(
-    [Output('animation-interval', 'disabled'),
-     Output('animation-state', 'data'),
-     Output('animation-status', 'children')],
-    [Input('play-button', 'n_clicks'),
-     Input('pause-button', 'n_clicks'),
-     Input('reset-button', 'n_clicks')],
-    [State('animation-state', 'data')],
-    prevent_initial_call=False  # Allow initial call
-)
-def control_animation(play_clicks, pause_clicks, reset_clicks, current_state):
-    ctx = callback_context
-    
-    # Default state - animation playing
-    if not ctx.triggered:
-        return False, {'playing': True, 'time_phase': 0}, "🎬 Animation playing"
-    
-    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    if button_id == 'play-button':
-        return False, {'playing': True, 'time_phase': current_state.get('time_phase', 0)}, "🎬 Animation playing"
-    elif button_id == 'pause-button':
-        return True, {'playing': False, 'time_phase': current_state.get('time_phase', 0)}, "⏸️ Animation paused"
-    elif button_id == 'reset-button':
-        return False, {'playing': True, 'time_phase': 0}, "🔄 Animation reset and playing"
-    
-    return False, {'playing': True, 'time_phase': 0}, "🎬 Animation playing"
-
-# FIXED: Motion Silhouette Generation Functions - Anatomically-accurate motion visualization
 def create_motion_silhouette_plot(patient_data, motion_test, time_phase):
     """FIXED: Create real-time motion silhouette with proper error handling"""
     
@@ -825,21 +713,11 @@ def create_motion_silhouette_plot(patient_data, motion_test, time_phase):
         
         # Color scheme for different body parts
         body_colors = {
-            'head': '#3498db',
-            'neck': '#2980b9',
-            'torso': '#2c3e50', 
-            'left_upper_arm': '#e74c3c',
-            'left_forearm': '#c0392b',
-            'left_hand': '#a93226',
-            'right_upper_arm': '#27ae60',
-            'right_forearm': '#229954',
-            'right_hand': '#1e8449',
-            'left_thigh': '#f39c12',
-            'left_shin': '#e67e22',
-            'left_foot': '#d35400',
-            'right_thigh': '#9b59b6',
-            'right_shin': '#8e44ad',
-            'right_foot': '#7d3c98'
+            'head': '#3498db', 'neck': '#2980b9', 'torso': '#2c3e50', 
+            'left_upper_arm': '#e74c3c', 'left_forearm': '#c0392b', 'left_hand': '#a93226',
+            'right_upper_arm': '#27ae60', 'right_forearm': '#229954', 'right_hand': '#1e8449',
+            'left_thigh': '#f39c12', 'left_shin': '#e67e22', 'left_foot': '#d35400',
+            'right_thigh': '#9b59b6', 'right_shin': '#8e44ad', 'right_foot': '#7d3c98'
         }
         
         # Draw each body part with error checking
@@ -868,36 +746,25 @@ def create_motion_silhouette_plot(patient_data, motion_test, time_phase):
                 asymmetry = patient_data.get('ASA_U', 0)
                 if asymmetry and not pd.isna(asymmetry) and asymmetry > 0.5:
                     fig.add_annotation(
-                        x=-2, y=8,
-                        text=f"⚠️ High Asymmetry: {asymmetry:.2f}",
-                        showarrow=False,
-                        bgcolor="rgba(231,76,60,0.9)",
-                        bordercolor="red",
-                        font=dict(color="white", size=10),
-                        borderwidth=1
+                        x=-2, y=8, text=f"⚠️ High Asymmetry: {asymmetry:.2f}",
+                        showarrow=False, bgcolor="rgba(231,76,60,0.9)",
+                        bordercolor="red", font=dict(color="white", size=10), borderwidth=1
                     )
                 
                 # Add speed indicator
                 speed = patient_data.get('SP_U', 1.0)
                 if speed and not pd.isna(speed):
                     if speed < 0.8:
-                        speed_status = "🐌 Slow Gait"
-                        status_color = "rgba(231,76,60,0.9)"
+                        speed_status, status_color = "🐌 Slow Gait", "rgba(231,76,60,0.9)"
                     elif speed > 1.2:
-                        speed_status = "🏃 Fast Gait"
-                        status_color = "rgba(52,152,219,0.9)"
+                        speed_status, status_color = "🏃 Fast Gait", "rgba(52,152,219,0.9)"
                     else:
-                        speed_status = "🚶 Normal Gait"
-                        status_color = "rgba(46,204,113,0.9)"
+                        speed_status, status_color = "🚶 Normal Gait", "rgba(46,204,113,0.9)"
                     
                     fig.add_annotation(
-                        x=2, y=8,
-                        text=f"{speed_status}<br>{speed:.2f} m/s",
-                        showarrow=False,
-                        bgcolor=status_color,
-                        bordercolor="gray",
-                        font=dict(color="white", size=10),
-                        borderwidth=1
+                        x=2, y=8, text=f"{speed_status}<br>{speed:.2f} m/s",
+                        showarrow=False, bgcolor=status_color, bordercolor="gray",
+                        font=dict(color="white", size=10), borderwidth=1
                     )
             except Exception as e:
                 print(f"Error adding annotations: {e}")
@@ -907,170 +774,76 @@ def create_motion_silhouette_plot(patient_data, motion_test, time_phase):
             title=f"Motion Silhouette - {motion_test.replace('_', ' ').title()} Test<br><sub>Phase: {time_phase:.1f} rad</sub>",
             xaxis=dict(range=[-3, 3], showgrid=False, zeroline=False, showticklabels=False, scaleanchor="y", scaleratio=1),
             yaxis=dict(range=[-4, 9], showgrid=False, zeroline=False, showticklabels=False),
-            showlegend=False,
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            margin=dict(l=10, r=10, t=50, b=10),
-            height=500
+            showlegend=False, plot_bgcolor='white', paper_bgcolor='white',
+            margin=dict(l=10, r=10, t=50, b=10), height=500
         )
         
-        # Generate motion metrics display
         motion_metrics = create_motion_metrics_display(patient_data, motion_test)
-        
         return fig, motion_metrics
         
     except Exception as e:
         print(f"Error in create_motion_silhouette_plot: {e}")
-        # Return basic figure
         fig = go.Figure()
-        fig.add_annotation(text=f"Error generating motion silhouette: {str(e)}", 
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(text=f"Error generating motion silhouette: {str(e)}", showarrow=False)
         fig.update_layout(title="Motion Silhouette - Error", height=500)
-        
-        error_metrics = html.Div([
-            html.P("Error generating motion metrics", style={'color': 'red'})
-        ])
-        
+        error_metrics = html.Div([html.P("Error generating motion metrics", style={'color': 'red'})])
         return fig, error_metrics
 
 def create_motion_metrics_display(patient_data, motion_test):
     """FIXED: Create motion metrics display using actual patient data"""
-    
     if not patient_data:
         return html.Div([
             html.P("👤 No patient selected", style={'color': '#7f8c8d', 'fontStyle': 'italic'}),
             html.P("Select a patient to see personalized motion metrics", style={'color': '#bdc3c7', 'fontSize': '11px'})
         ])
     
-    # Extract key motion metrics from your data structure - FIXED metrics extraction
     metrics = []
     
-    # Gait metrics - Direct from your gait data
     if 'SP_U' in patient_data and not pd.isna(patient_data['SP_U']):
         speed = patient_data['SP_U']
-        if speed < 0.8:
-            speed_color, speed_icon = '#e74c3c', '🐌'
-        elif speed > 1.2:
-            speed_color, speed_icon = '#3498db', '🏃'
-        else:
-            speed_color, speed_icon = '#27ae60', '🚶'
-        
+        if speed < 0.8: speed_color, speed_icon = '#e74c3c', '🐌'
+        elif speed > 1.2: speed_color, speed_icon = '#3498db', '🏃'
+        else: speed_color, speed_icon = '#27ae60', '🚶'
         metrics.append(html.Div([
             html.Span(f"{speed_icon} Gait Speed: ", style={'fontWeight': 'bold'}),
             html.Span(f"{speed:.2f} m/s", style={'color': speed_color, 'fontWeight': 'bold'})
         ], style={'marginBottom': '5px'}))
     
-    # Arm swing asymmetry - Key Parkinson's indicator from your data
     if 'ASA_U' in patient_data and not pd.isna(patient_data['ASA_U']):
         asa = patient_data['ASA_U']
-        if asa < 0.2:
-            asa_color, asa_icon = '#27ae60', '✅'
-        elif asa < 0.5:
-            asa_color, asa_icon = '#f39c12', '⚠️'
-        else:
-            asa_color, asa_icon = '#e74c3c', '🚨'
-        
+        if asa < 0.2: asa_color, asa_icon = '#27ae60', '✅'
+        elif asa < 0.5: asa_color, asa_icon = '#f39c12', '⚠️'
+        else: asa_color, asa_icon = '#e74c3c', '🚨'
         metrics.append(html.Div([
             html.Span(f"{asa_icon} Arm Asymmetry: ", style={'fontWeight': 'bold'}),
             html.Span(f"{asa:.3f}", style={'color': asa_color, 'fontWeight': 'bold'})
         ], style={'marginBottom': '5px'}))
-    
-    # Bilateral coordination - Derived from your bilateral measurements
-    if 'BILATERAL_COORDINATION' in patient_data and not pd.isna(patient_data['BILATERAL_COORDINATION']):
-        coord = patient_data['BILATERAL_COORDINATION']
-        if coord > 0.8:
-            coord_color, coord_icon = '#27ae60', '🎯'
-        elif coord > 0.6:
-            coord_color, coord_icon = '#f39c12', '⚖️'
-        else:
-            coord_color, coord_icon = '#e74c3c', '🎲'
-        
-        metrics.append(html.Div([
-            html.Span(f"{coord_icon} Coordination: ", style={'fontWeight': 'bold'}),
-            html.Span(f"{coord:.3f}", style={'color': coord_color, 'fontWeight': 'bold'})
-        ], style={'marginBottom': '5px'}))
-    
-    # Movement quality - Composite measure from your data
-    if 'MOVEMENT_QUALITY' in patient_data and not pd.isna(patient_data['MOVEMENT_QUALITY']):
-        quality = patient_data['MOVEMENT_QUALITY']
-        if quality > 20:
-            quality_color, quality_icon = '#27ae60', '⭐'
-        elif quality > 10:
-            quality_color, quality_icon = '#f39c12', '🔸'
-        else:
-            quality_color, quality_icon = '#e74c3c', '🔻'
-        
-        metrics.append(html.Div([
-            html.Span(f"{quality_icon} Movement Quality: ", style={'fontWeight': 'bold'}),
-            html.Span(f"{quality:.1f}", style={'color': quality_color, 'fontWeight': 'bold'})
-        ], style={'marginBottom': '5px'}))
-    
-    # Test-specific metrics
-    if motion_test == 'tug' and 'TUG1_DUR' in patient_data and not pd.isna(patient_data['TUG1_DUR']):
-        tug_duration = patient_data['TUG1_DUR']
-        if tug_duration < 10:
-            tug_color, tug_icon = '#27ae60', '✅'
-        elif tug_duration < 15:
-            tug_color, tug_icon = '#f39c12', '⚠️'
-        else:
-            tug_color, tug_icon = '#e74c3c', '🚨'
-        
-        metrics.append(html.Div([
-            html.Span(f"{tug_icon} TUG Duration: ", style={'fontWeight': 'bold'}),
-            html.Span(f"{tug_duration:.1f}s", style={'color': tug_color, 'fontWeight': 'bold'})
-        ], style={'marginBottom': '5px'}))
-    
+
     if not metrics:
         return html.Div([
             html.P("📊 Limited motion data available", style={'color': '#f39c12', 'fontStyle': 'italic'}),
             html.P("Some metrics may not be available for this patient", style={'color': '#bdc3c7', 'fontSize': '11px'})
         ])
     
-    return html.Div(metrics + [
-        html.Hr(style={'margin': '10px 0', 'border': '1px solid #ecf0f1'}),
-        html.P(f"🎭 Motion Test: {motion_test.replace('_', ' ').title()}", 
-               style={'color': '#7f8c8d', 'fontSize': '11px', 'fontStyle': 'italic'})
-    ], style={'lineHeight': '1.4'})
+    return html.Div(metrics)
 
-# Additional visualization functions (simplified versions of the original)
 def create_enhanced_correlation_plot(df, x_feature, y_feature, selected_patient):
     """Enhanced correlation plot with motion context"""
-    
-    # Filter valid data
     valid_data = df.dropna(subset=[x_feature, y_feature])
-    
-    if len(valid_data) == 0:
-        fig = go.Figure()
-        fig.add_annotation(text="No valid data for selected features", xref="paper", yref="paper", x=0.5, y=0.5)
-        return fig
-    
+    if valid_data.empty:
+        return go.Figure().add_annotation(text="No valid data for selected features", showarrow=False)
+
     fig = px.scatter(
-        valid_data,
-        x=x_feature,
-        y=y_feature,
-        color='COHORT_NAME',
-        size='CLINICAL_MOTOR_SEVERITY' if 'CLINICAL_MOTOR_SEVERITY' in valid_data.columns else None,
-        hover_data=['PATNO', 'SP_U', 'ASA_U'] if 'SP_U' in valid_data.columns else ['PATNO'],
-        title=f'Multi-Modal Analysis: {FEATURE_LABELS.get(y_feature, y_feature)} vs. {FEATURE_LABELS.get(x_feature, x_feature)}',
-        color_discrete_map={
-            "Parkinson's Disease": '#e74c3c',
-            'Healthy Control': '#2ecc71', 
-            'Prodromal': '#3498db',
-            'SWEDD': '#f39c12',
-            'Unknown': '#95a5a6'
-        }
+        valid_data, x=x_feature, y=y_feature, color='COHORT_NAME',
+        title=f'Analysis: {FEATURE_LABELS.get(y_feature, y_feature)} vs. {FEATURE_LABELS.get(x_feature, x_feature)}'
     )
     
-    # Highlight selected patient
     if selected_patient and selected_patient in valid_data['PATNO'].values:
         patient_data = valid_data[valid_data['PATNO'] == selected_patient]
         fig.add_trace(go.Scatter(
-            x=patient_data[x_feature],
-            y=patient_data[y_feature],
-            mode='markers',
+            x=patient_data[x_feature], y=patient_data[y_feature], mode='markers',
             marker=dict(size=20, color='red', symbol='star', line=dict(width=3, color='black')),
-            name=f'Patient {selected_patient} (Motion Focus)',
-            hovertemplate=f'Patient {selected_patient}<br>{x_feature}: %{{x}}<br>{y_feature}: %{{y}}<extra></extra>'
+            name=f'Patient {selected_patient}'
         ))
     
     fig.update_layout(
@@ -1078,239 +851,217 @@ def create_enhanced_correlation_plot(df, x_feature, y_feature, selected_patient)
         yaxis_title=FEATURE_LABELS.get(y_feature, y_feature),
         template='plotly_white'
     )
-    
     return fig
 
 def create_bilateral_asymmetry_motion(df, selected_patient):
-    """Create bilateral asymmetry visualization with motion context"""
-    
+    """Create bilateral asymmetry visualization"""
     if 'RA_AMP_U' not in df.columns or 'LA_AMP_U' not in df.columns:
-        fig = go.Figure()
-        fig.add_annotation(text="Bilateral arm data not available", xref="paper", yref="paper", x=0.5, y=0.5)
-        return fig
+        return go.Figure().add_annotation(text="Bilateral arm data not available", showarrow=False)
     
     valid_data = df.dropna(subset=['RA_AMP_U', 'LA_AMP_U'])
-    
-    fig = go.Figure()
-    
-    # Create asymmetry visualization
-    for cohort in valid_data['COHORT_NAME'].unique():
-        cohort_data = valid_data[valid_data['COHORT_NAME'] == cohort]
-        
-        fig.add_trace(go.Scatter(
-            x=cohort_data['RA_AMP_U'],
-            y=cohort_data['LA_AMP_U'],
-            mode='markers',
-            name=cohort,
-            opacity=0.7,
-            hovertemplate='%{text}<br>Right Arm: %{x:.1f}<br>Left Arm: %{y:.1f}<extra></extra>',
-            text=[f'Patient {p}' for p in cohort_data['PATNO']]
-        ))
-    
-    # Add perfect symmetry line
+    fig = px.scatter(valid_data, x='RA_AMP_U', y='LA_AMP_U', color='COHORT_NAME',
+                     title='Bilateral Arm Movement Asymmetry')
+
     max_val = max(valid_data['RA_AMP_U'].max(), valid_data['LA_AMP_U'].max())
-    fig.add_trace(go.Scatter(
-        x=[0, max_val],
-        y=[0, max_val],
-        mode='lines',
-        name='Perfect Symmetry',
-        line=dict(dash='dash', color='gray', width=2)
-    ))
-    
-    # Highlight selected patient
+    fig.add_shape(type='line', x0=0, y0=0, x1=max_val, y1=max_val, 
+                  line=dict(dash='dash', color='gray'))
+
     if selected_patient and selected_patient in valid_data['PATNO'].values:
         patient_data = valid_data[valid_data['PATNO'] == selected_patient]
         fig.add_trace(go.Scatter(
-            x=patient_data['RA_AMP_U'],
-            y=patient_data['LA_AMP_U'],
-            mode='markers',
+            x=patient_data['RA_AMP_U'], y=patient_data['LA_AMP_U'], mode='markers',
             marker=dict(size=20, color='red', symbol='star', line=dict(width=3, color='black')),
-            name=f'Patient {selected_patient}',
-            hovertemplate=f'Patient {selected_patient}<br>Right Arm: %{{x:.1f}}<br>Left Arm: %{{y:.1f}}<extra></extra>'
+            name=f'Patient {selected_patient}'
         ))
-    
-    fig.update_layout(
-        title='Bilateral Arm Movement Analysis - Asymmetry Detection',
-        xaxis_title='Right Arm Amplitude',
-        yaxis_title='Left Arm Amplitude',
-        template='plotly_white'
-    )
-    
+        
+    fig.update_layout(xaxis_title='Right Arm Amplitude', yaxis_title='Left Arm Amplitude', template='plotly_white')
     return fig
 
 def create_gait_cycle_analysis(df, selected_patient, time_phase):
-    """Create gait cycle analysis showing walking patterns over time"""
-    
+    """Create gait cycle analysis"""
     fig = go.Figure()
+    if not selected_patient or selected_patient not in df['PATNO'].values:
+        fig.add_annotation(text="Select a patient to see gait cycle", showarrow=False)
+        return fig
+
+    patient_data = df[df['PATNO'] == selected_patient].iloc[0]
+    left_amp = patient_data.get('LA_AMP_U', 30)
+    right_amp = patient_data.get('RA_AMP_U', 30)
+    time_points = np.linspace(0, 2 * math.pi, 100)
+    left_swing = (left_amp / 50.0) * np.sin(time_points)
+    right_swing = (right_amp / 50.0) * np.sin(time_points + math.pi)
+
+    fig.add_trace(go.Scatter(x=time_points, y=left_swing, mode='lines', name='Left Arm Swing'))
+    fig.add_trace(go.Scatter(x=time_points, y=right_swing, mode='lines', name='Right Arm Swing'))
+    fig.add_vline(x=time_phase, line_dash="dash", line_color="red", annotation_text="Current Phase")
     
-    if selected_patient and selected_patient in df['PATNO'].values:
-        patient_data = df[df['PATNO'] == selected_patient].iloc[0]
-        
-        # Generate synthetic gait cycle data based on patient's parameters
-        gait_speed = patient_data.get('SP_U', 1.0)
-        left_amp = patient_data.get('LA_AMP_U', 30)
-        right_amp = patient_data.get('RA_AMP_U', 30)
-        asymmetry = patient_data.get('ASA_U', 0.1)
-        
-        # Create time series for one gait cycle
-        time_points = np.linspace(0, 2*math.pi, 100)
-        
-        # Left and right arm swing patterns
-        left_arm_swing = (left_amp / 50.0) * np.sin(time_points) * (1 + asymmetry)
-        right_arm_swing = (right_amp / 50.0) * np.sin(time_points + math.pi) * (1 - asymmetry)
-        
-        # Plot gait cycle components
-        fig.add_trace(go.Scatter(
-            x=time_points,
-            y=left_arm_swing,
-            mode='lines',
-            name='Left Arm Swing',
-            line=dict(color='#e74c3c', width=3)
-        ))
-        
-        fig.add_trace(go.Scatter(
-            x=time_points,
-            y=right_arm_swing,
-            mode='lines',
-            name='Right Arm Swing',
-            line=dict(color='#27ae60', width=3)
-        ))
-        
-        # Add current time phase indicator
-        fig.add_vline(
-            x=time_phase,
-            line_dash="solid",
-            line_color="red",
-            line_width=3,
-            annotation_text="Current Phase",
-            annotation_position="top"
-        )
-        
-        # Add gait phase annotations
-        gait_phases = {
-            0: "Heel Strike",
-            math.pi/2: "Mid Stance", 
-            math.pi: "Toe Off",
-            3*math.pi/2: "Mid Swing"
-        }
-        
-        for phase_time, phase_name in gait_phases.items():
-            fig.add_annotation(
-                x=phase_time,
-                y=0.8,
-                text=phase_name,
-                showarrow=True,
-                arrowhead=2,
-                arrowsize=1,
-                arrowcolor="gray"
-            )
-    
-    else:
-        # Show message when no patient selected
-        fig.add_annotation(
-            text="Select a patient to see personalized gait cycle analysis",
-            xref="paper", yref="paper", x=0.5, y=0.5,
-            showarrow=False,
-            font=dict(size=14, color="gray")
-        )
-    
-    fig.update_layout(
-        title=f'Gait Cycle Analysis - Patient {selected_patient if selected_patient else "Not Selected"}',
-        xaxis_title='Gait Cycle Phase (radians)',
-        yaxis_title='Movement Amplitude',
-        template='plotly_white',
-        xaxis=dict(
-            tickmode='array',
-            tickvals=[0, math.pi/2, math.pi, 3*math.pi/2, 2*math.pi],
-            ticktext=['0°', '90°', '180°', '270°', '360°']
-        )
-    )
-    
+    fig.update_layout(title=f'Gait Cycle - Patient {selected_patient}',
+                      xaxis_title='Phase (radians)', yaxis_title='Amplitude', template='plotly_white')
     return fig
 
 def create_motion_quality_assessment(df, selected_patient):
-    """Create motion quality assessment using available metrics"""
-    
+    """Create motion quality radar chart"""
     fig = go.Figure()
+    if not selected_patient or selected_patient not in df['PATNO'].values:
+        fig.add_annotation(text="Select a patient to see quality assessment", showarrow=False)
+        return fig
+
+    patient_data = df[df['PATNO'] == selected_patient].iloc[0]
+    metrics = {
+        'Movement Quality': min(patient_data.get('MOVEMENT_QUALITY', 0) / 20, 1.0),
+        'Coordination': patient_data.get('BILATERAL_COORDINATION', 0),
+        'Symmetry': max(0, 1 - (patient_data.get('ASA_U', 2.0) / 2.0))
+    }
     
-    if selected_patient and selected_patient in df['PATNO'].values:
-        patient_data = df[df['PATNO'] == selected_patient].iloc[0]
-        
-        # Define quality metrics based on available data
-        quality_metrics = {}
-        
-        if 'MOVEMENT_QUALITY' in patient_data and not pd.isna(patient_data['MOVEMENT_QUALITY']):
-            quality_metrics['Movement Quality'] = min(patient_data['MOVEMENT_QUALITY'] / 20, 1.0)
-        
-        if 'BILATERAL_COORDINATION' in patient_data and not pd.isna(patient_data['BILATERAL_COORDINATION']):
-            quality_metrics['Bilateral Coordination'] = patient_data['BILATERAL_COORDINATION']
-        
-        if 'SP_U' in patient_data and not pd.isna(patient_data['SP_U']):
-            speed_quality = 1 - abs(patient_data['SP_U'] - 1.2) / 1.2
-            quality_metrics['Gait Speed Quality'] = max(0, speed_quality)
-        
-        if 'ASA_U' in patient_data and not pd.isna(patient_data['ASA_U']):
-            quality_metrics['Symmetry Quality'] = max(0, 1 - (patient_data['ASA_U'] / 2.0))
-        
-        # Create radar chart if we have metrics
-        if quality_metrics:
-            fig.add_trace(go.Scatterpolar(
-                r=list(quality_metrics.values()),
-                theta=list(quality_metrics.keys()),
-                fill='toself',
-                name=f'Patient {selected_patient}',
-                line=dict(color='#e74c3c', width=3),
-                fillcolor='rgba(231,76,60,0.3)'
-            ))
-            
-            # Add reference circle for normal range
-            fig.add_trace(go.Scatterpolar(
-                r=[0.8] * len(quality_metrics),
-                theta=list(quality_metrics.keys()),
-                mode='lines',
-                name='Normal Range (80%)',
-                line=dict(color='gray', width=2, dash='dash')
-            ))
-        else:
-            fig.add_annotation(
-                text="Insufficient quality data for this patient",
-                xref="paper", yref="paper", x=0.5, y=0.5
-            )
-    
-    else:
-        fig.add_annotation(
-            text="Select a patient to see motion quality assessment",
-            xref="paper", yref="paper", x=0.5, y=0.5
-        )
-    
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 1],
-                tickmode='array',
-                tickvals=[0.2, 0.4, 0.6, 0.8, 1.0],
-                ticktext=['20%', '40%', '60%', '80%', '100%']
-            )
-        ),
-        title='Motion Quality Assessment',
-        template='plotly_white'
-    )
-    
+    fig.add_trace(go.Scatterpolar(
+        r=list(metrics.values()),
+        theta=list(metrics.keys()),
+        fill='toself', name='Patient Quality'
+    ))
+    fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+                      title=f'Motion Quality - Patient {selected_patient}', template='plotly_white')
     return fig
+
+# Callback 1: Update the patient data store when the dropdown changes
+@app.callback(
+    Output('patient-data-store', 'data'),
+    Input('patient-dropdown', 'value')
+)
+def update_patient_store(selected_patient):
+    """
+    Fetches the selected patient's data and stores it.
+    This avoids expensive lookups in the high-frequency animation callback.
+    """
+    if selected_patient and not df_clean.empty and selected_patient in df_clean['PATNO'].values:
+        patient_row = df_clean[df_clean['PATNO'] == selected_patient].iloc[0]
+        return patient_row.to_dict()
+    # Return average data if no patient is selected
+    if not df_clean.empty:
+        return {
+            'LA_AMP_U': df_clean['LA_AMP_U'].mean(),
+            'RA_AMP_U': df_clean['RA_AMP_U'].mean(),
+            'SP_U': df_clean['SP_U'].mean(),
+            'ASA_U': df_clean['ASA_U'].mean(),
+            'L_JERK_U': df_clean.get('L_JERK_U', pd.Series([0.02])).mean(),
+            'R_JERK_U': df_clean.get('R_JERK_U', pd.Series([0.02])).mean(),
+        }
+    return {}
+
+# Callback 2: Control the animation state (Play, Pause, Reset, Speed)
+@app.callback(
+    [Output('animation-interval', 'disabled'),
+     Output('animation-state', 'data'),
+     Output('animation-status', 'children')],
+    [Input('play-button', 'n_clicks'),
+     Input('pause-button', 'n_clicks'),
+     Input('reset-button', 'n_clicks'),
+     Input('animation-speed-slider', 'value')],
+    [State('animation-state', 'data')],
+    prevent_initial_call=False
+)
+def control_animation(play_clicks, pause_clicks, reset_clicks, speed, current_state):
+    """
+    Manages the master animation state based on user controls.
+    Updates playing status, speed, and resets the time phase.
+    """
+    ctx = callback_context
+    triggered_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else 'initial'
+
+    state = current_state or {'playing': True, 'time_phase': 0, 'speed': 1.0}
+    state['speed'] = speed
+
+    if triggered_id == 'play-button':
+        state['playing'] = True
+        return False, state, "🎬 Animation playing"
+    elif triggered_id == 'pause-button':
+        state['playing'] = False
+        return True, state, "⏸️ Animation paused"
+    elif triggered_id == 'reset-button':
+        state['time_phase'] = 0
+        state['playing'] = True
+        return False, state, "🔄 Animation reset and playing"
+    
+    # Handle speed changes or initial load
+    if state['playing']:
+        return False, state, "🎬 Animation playing"
+    else:
+        return True, state, "⏸️ Animation paused"
+
+# Callback 3: The "Ticker" - updates the time phase on every interval
+@app.callback(
+    Output('animation-state', 'data', allow_duplicate=True),
+    Input('animation-interval', 'n_intervals'),
+    State('animation-state', 'data'),
+    prevent_initial_call=True,
+)
+def update_animation_phase(n_intervals, current_state):
+    """
+    This is the lightweight animation "engine". It fires every 100ms
+    and its ONLY job is to increment the time_phase in the state store.
+    """
+    if current_state and current_state.get('playing'):
+        # Increment time_phase based on speed
+        current_state['time_phase'] = (current_state['time_phase'] + current_state['speed'] * 0.1) % (2 * math.pi)
+        return current_state
+    return dash.no_update
+
+# Callback 4: The "Renderer" - creates the silhouette when the state changes
+@app.callback(
+    [Output('motion-silhouette-plot', 'figure'),
+     Output('motion-metrics-display', 'children')],
+    [Input('patient-data-store', 'data'),
+     Input('animation-state', 'data'),
+     Input('motion-test-dropdown', 'value')]
+)
+def update_motion_silhouette(patient_data, animation_state, motion_test):
+    """
+    This is the main rendering callback. It's triggered only when the
+    underlying data (patient or animation frame) changes. It is NOT
+    triggered directly by the high-frequency interval.
+    """
+    if not patient_data or not animation_state:
+        return go.Figure(), "Select a patient to begin."
+
+    time_phase = animation_state.get('time_phase', 0)
+    
+    try:
+        fig_silhouette, motion_metrics = create_motion_silhouette_plot(patient_data, motion_test or 'gait', time_phase)
+        return fig_silhouette, motion_metrics
+    except Exception as e:
+        print(f"Error in motion silhouette generation: {e}")
+        empty_fig = go.Figure().add_annotation(text=f"Error: {e}", showarrow=False)
+        error_msg = html.Div(f"Error: {e}", style={'color': 'red'})
+        return empty_fig, error_msg
+
+# Callback 5: Update all other (static) visualizations
+@app.callback(
+    [Output('main-correlation-plot', 'figure'),
+     Output('bilateral-asymmetry-motion', 'figure'),
+     Output('motion-quality-assessment', 'figure'),
+     Output('gait-cycle-analysis', 'figure')],
+    [Input('patient-dropdown', 'value'),
+     Input('x-axis-dropdown', 'value'),
+     Input('y-axis-dropdown', 'value'),
+     Input('animation-state', 'data')] # Use animation state for gait cycle phase
+)
+def update_all_visualizations(selected_patient, x_feature, y_feature, animation_state):
+    """
+    Consolidated callback to update all non-silhouette plots.
+    """
+    if df_clean.empty:
+        empty_fig = go.Figure().add_annotation(text="No data available", showarrow=False)
+        return [empty_fig] * 4
+
+    time_phase = animation_state.get('time_phase', 0)
+
+    fig_main = create_enhanced_correlation_plot(df_clean, x_feature, y_feature, selected_patient)
+    fig_bilateral = create_bilateral_asymmetry_motion(df_clean, selected_patient)
+    fig_motion_quality = create_motion_quality_assessment(df_clean, selected_patient)
+    fig_gait_cycle = create_gait_cycle_analysis(df_clean, selected_patient, time_phase)
+    
+    return fig_main, fig_bilateral, fig_motion_quality, fig_gait_cycle
 
 # Run the App
 if __name__ == '__main__':
-    print("Starting FIXED Enhanced Multi-Modal Parkinson's Dashboard with Working Motion Silhouettes...")
-    print("🔧 FIXES APPLIED:")
-    print("  ✅ Animation timer now properly updates motion silhouettes")
-    print("  ✅ Anatomically-accurate silhouette with realistic proportions")
-    print("  ✅ Smooth 50ms animation intervals for fluid motion")
-    print("  ✅ Proper coordinate transformations for all body parts")
-    print("  ✅ Patient-specific motion parameters integrated")
-    print("  ✅ Animation controls (Play/Pause/Reset) working")
-    print("  ✅ Motion metrics display with visual indicators")
-    print("🎭 Motion Tests: Walking, TUG (Timed Up & Go), Postural Sway, Free Motion")
-    print("📊 Data Integration: Clinical scores, objective measurements, digital sensors")
-    print("🚀 Ready to animate! Select a patient and press Play!")
-    app.run(debug=True)
+    print("Starting FIXED Enhanced Multi-Modal Parkinson's Dashboard...")
+    app.run(debug=True) 
