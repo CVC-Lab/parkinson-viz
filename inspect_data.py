@@ -102,9 +102,9 @@ class ParkinsonDataInspector:
             }
             
         except FileNotFoundError:
-            print(f"❌ File not found: {file_path}")
+            print(f"File not found: {file_path}")
         except Exception as e:
-            print(f"❌ Error reading {filename}: {str(e)}")
+            print(f"Error reading {filename}: {str(e)}")
     
     def inspect_digital_sensor_files(self, sensor_path):
         """Inspect digital sensor Excel files"""
@@ -138,7 +138,7 @@ class ParkinsonDataInspector:
                         print(f"  Time columns: {time_cols}")
                     
                 except Exception as e:
-                    print(f"  ❌ Error reading {filename[:20]}...: {str(e)}")
+                    print(f"  Error reading {filename[:20]}...: {str(e)}")
         
         # Also check the main CSV file
         csv_path = os.path.join(sensor_dir, "Roche_PD_Monitoring_App_v2_data_06Jan2025.csv")
@@ -191,7 +191,7 @@ class ParkinsonDataInspector:
         ]
         
         for rel in relationships:
-            print(f"  🔗 {rel}")
+            print(f"   {rel}")
             
         print(f"\nCLINICAL INTERPRETATION PIPELINE:")
         print(f"  Raw Sensors → Derived Features → Clinical Scores → Diagnosis/Progression")

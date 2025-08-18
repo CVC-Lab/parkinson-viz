@@ -1,5 +1,3 @@
-# app.py - FIXED MULTI-DATASET ENHANCED PARKINSON'S VISUALIZATION WITH WORKING SILHOUETTE MOTION
-
 import dash
 from dash import dcc, html, Input, Output, State, callback_context
 import plotly.express as px
@@ -42,7 +40,7 @@ class ParkinsonDataLoader:
             self.data['gait'] = pd.read_csv(gait_path)
             print(f"✓ Loaded gait data: {self.data['gait'].shape}")
         except Exception as e:
-            print(f"❌ Error loading gait data: {e}")
+            print(f"Error loading gait data: {e}")
             self.data['gait'] = pd.DataFrame()
     
     def load_updrs_data(self):
@@ -69,7 +67,7 @@ class ParkinsonDataLoader:
             print(f"✓ Loaded UPDRS II: {self.data['updrs2'].shape}")
             
         except Exception as e:
-            print(f"❌ Error loading UPDRS data: {e}")
+            print(f"Error loading UPDRS data: {e}")
             self.data['updrs3'] = pd.DataFrame()
             self.data['updrs2'] = pd.DataFrame()
     
@@ -92,7 +90,7 @@ class ParkinsonDataLoader:
             print(f"✓ Loaded status: {self.data['status'].shape}")
             
         except Exception as e:
-            print(f"❌ Error loading demographics: {e}")
+            print(f"Error loading demographics: {e}")
             self.data['demographics'] = pd.DataFrame()
             self.data['status'] = pd.DataFrame()
     
@@ -120,14 +118,14 @@ class ParkinsonDataLoader:
             print(f"✓ Created sensor summary: {self.data['sensor_summary'].shape}")
             
         except Exception as e:
-            print(f"❌ Error loading sensor data: {e}")
+            print(f"Error loading sensor data: {e}")
             self.data['sensors'] = pd.DataFrame()
             self.data['sensor_summary'] = pd.DataFrame()
     
     def merge_datasets(self):
         """Merge all datasets on PATNO and EVENT_ID - Comprehensive multi-modal data integration"""
         if self.data['gait'].empty:
-            print("❌ No gait data available for merging")
+            print("No gait data available for merging")
             self.data['merged'] = pd.DataFrame()
             return
         
@@ -227,7 +225,7 @@ class ParkinsonDataLoader:
         
         self.data['merged'] = merged
 
-# FIXED: Enhanced Motion Silhouette Visualization System - Anatomically-accurate with proper animation
+# Enhanced Motion Silhouette Visualization System - Anatomically-accurate with proper animation
 class MotionSilhouetteGenerator:
     """Generate anatomically-correct motion silhouettes based on patient data with proper animation"""
     
@@ -373,7 +371,7 @@ class MotionSilhouetteGenerator:
         }
     
     def calculate_balance_motion(self, sensor_mean, time_phase):
-        """Calculate postural sway motion - FIXED balance animation"""
+        """Calculate postural sway motion """
         
         # Use sensor data to determine sway magnitude
         sway_magnitude = abs(sensor_mean) / 50.0 if sensor_mean else 0.1
@@ -394,7 +392,7 @@ class MotionSilhouetteGenerator:
         }
     
     def calculate_tug_motion(self, left_arm_amp, right_arm_amp, gait_speed, tug_phase, time_phase):
-        """Calculate TUG test motion - FIXED TUG animation"""
+        """Calculate TUG test motion """
         
         if tug_phase == 'sitting':
             return self.get_sitting_posture()
@@ -406,7 +404,7 @@ class MotionSilhouetteGenerator:
             return self.calculate_gait_motion(left_arm_amp, right_arm_amp, gait_speed, time_phase, 0.1)
     
     def determine_tug_phase(self, patient_data, time_phase):
-        """Determine TUG test phase - FIXED phase determination"""
+        """Determine TUG test phase """
         
         # Normalize time_phase to 0-1 cycle
         normalized_time = (time_phase % (2 * math.pi)) / (2 * math.pi)
@@ -538,11 +536,11 @@ print("Initializing multi-dataset Parkinson's analysis...")
 loader = ParkinsonDataLoader()
 df_clean = loader.load_all_datasets()
 
-# Initialize motion silhouette generator - FIXED motion visualization system
+# Initialize motion silhouette generator 
 motion_generator = MotionSilhouetteGenerator()
 
 if df_clean.empty:
-    print("❌ No data loaded. Please check file paths.")
+    print("No data loaded. Please check file paths.")
     df_clean = pd.DataFrame()
 else:
     patients = sorted(df_clean['PATNO'].unique())
@@ -557,7 +555,7 @@ FEATURE_GROUPS = {
     'Digital Biomarkers': ['SENSOR_MEAN', 'SENSOR_STD', 'SENSOR_COUNT']
 }
 
-# Enhanced feature labels - Clinical interpretation-focused labeling
+# Clinical interpretation-focused labeling
 FEATURE_LABELS = {
     'ASA_U': 'Arm Swing Asymmetry',
     'SP_U': 'Gait Speed (m/s)',
@@ -583,7 +581,7 @@ FEATURE_LABELS = {
 # Initialize the Dash App
 app = dash.Dash(__name__)
 
-# FIXED App Layout - Proper animation integration with enhanced motion silhouettes
+# Proper animation integration with enhanced motion silhouettes
 app.layout = html.Div(style={'fontFamily': 'Arial', 'padding': '20px', 'backgroundColor': '#f8f9fa'}, children=[
     html.H1("Multi-Modal Parkinson's Disease Analysis with Motion Silhouettes", 
             style={'color': '#2c3e50', 'textAlign': 'center', 'marginBottom': '10px'}),
@@ -650,12 +648,12 @@ app.layout = html.Div(style={'fontFamily': 'Arial', 'padding': '20px', 'backgrou
         ])
     ]),
 
-    # FIXED: Motion Silhouette Panel - Real-time anatomical motion visualization with proper updates
+    # Motion Silhouette Panel - Real-time anatomical motion visualization with proper updates
     html.Div(style={'display': 'grid', 'gridTemplateColumns': '2fr 1fr', 'gap': '20px', 'marginBottom': '30px'}, children=[
         # Main correlation plot
         dcc.Graph(id='main-correlation-plot', style={'height': '60vh'}),
         
-        # Motion silhouette visualization - FIXED to update with animation
+        # Motion silhouette visualization 
         html.Div(style={'backgroundColor': 'white', 'borderRadius': '10px', 'padding': '20px', 
                        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'}, children=[
             html.H3("Real-Time Motion Silhouette", style={'color': '#2c3e50', 'marginBottom': '15px'}),
@@ -673,7 +671,7 @@ app.layout = html.Div(style={'fontFamily': 'Arial', 'padding': '20px', 'backgrou
         dcc.Graph(id='motion-quality-assessment', style={'height': '40vh'})
     ]),
     
-    # Animation Control - FIXED real-time motion animation controls
+    # Animation Control 
     html.Div(style={'backgroundColor': 'white', 'borderRadius': '10px', 'padding': '20px', 
                    'marginTop': '30px', 'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'}, children=[
         html.H3("Motion Animation Controls", style={'color': '#2c3e50', 'marginBottom': '15px'}),
@@ -688,7 +686,7 @@ app.layout = html.Div(style={'fontFamily': 'Arial', 'padding': '20px', 'backgrou
         ])
     ]),
     
-    # FIXED Animation timer for real-time updates - Proper continuous motion animation
+    # Animation timer for real-time updates - Proper continuous motion animation
     dcc.Interval(
         id='animation-interval',
         interval=100,  # Faster for smoother animation
@@ -704,7 +702,7 @@ app.layout = html.Div(style={'fontFamily': 'Arial', 'padding': '20px', 'backgrou
 
 
 def create_motion_silhouette_plot(patient_data, motion_test, time_phase):
-    """FIXED: Create real-time motion silhouette with proper error handling"""
+    """Create real-time motion silhouette with proper error handling"""
     
     try:
         # Generate motion frame using patient's actual data
@@ -756,11 +754,11 @@ def create_motion_silhouette_plot(patient_data, motion_test, time_phase):
                 speed = patient_data.get('SP_U', 1.0)
                 if speed and not pd.isna(speed):
                     if speed < 0.8:
-                        speed_status, status_color = "🐌 Slow Gait", "rgba(231,76,60,0.9)"
+                        speed_status, status_color = "Slow Gait", "rgba(231,76,60,0.9)"
                     elif speed > 1.2:
-                        speed_status, status_color = "🏃 Fast Gait", "rgba(52,152,219,0.9)"
+                        speed_status, status_color = "Fast Gait", "rgba(52,152,219,0.9)"
                     else:
-                        speed_status, status_color = "🚶 Normal Gait", "rgba(46,204,113,0.9)"
+                        speed_status, status_color = "Normal Gait", "rgba(46,204,113,0.9)"
                     
                     fig.add_annotation(
                         x=2, y=8, text=f"{speed_status}<br>{speed:.2f} m/s",
@@ -791,7 +789,7 @@ def create_motion_silhouette_plot(patient_data, motion_test, time_phase):
         return fig, error_metrics
 
 def create_motion_metrics_display(patient_data, motion_test):
-    """FIXED: Create motion metrics display using actual patient data"""
+    """Create motion metrics display using actual patient data"""
     if not patient_data:
         return html.Div([
             html.P("👤 No patient selected", style={'color': '#7f8c8d', 'fontStyle': 'italic'}),
@@ -802,27 +800,25 @@ def create_motion_metrics_display(patient_data, motion_test):
     
     if 'SP_U' in patient_data and not pd.isna(patient_data['SP_U']):
         speed = patient_data['SP_U']
-        if speed < 0.8: speed_color, speed_icon = '#e74c3c', '🐌'
-        elif speed > 1.2: speed_color, speed_icon = '#3498db', '🏃'
-        else: speed_color, speed_icon = '#27ae60', '🚶'
+        if speed < 0.8: speed_color = '#e74c3c'
+        elif speed > 1.2: speed_color = '#3498db'
+        else: speed_color = '#27ae60'
         metrics.append(html.Div([
-            html.Span(f"{speed_icon} Gait Speed: ", style={'fontWeight': 'bold'}),
             html.Span(f"{speed:.2f} m/s", style={'color': speed_color, 'fontWeight': 'bold'})
         ], style={'marginBottom': '5px'}))
     
     if 'ASA_U' in patient_data and not pd.isna(patient_data['ASA_U']):
         asa = patient_data['ASA_U']
-        if asa < 0.2: asa_color, asa_icon = '#27ae60', '✅'
-        elif asa < 0.5: asa_color, asa_icon = '#f39c12', '⚠️'
-        else: asa_color, asa_icon = '#e74c3c', '🚨'
+        if asa < 0.2: asa_color = '#27ae60
+        elif asa < 0.5: asa_color = '#f39c12
+        else: asa_color = '#e74c3c
         metrics.append(html.Div([
-            html.Span(f"{asa_icon} Arm Asymmetry: ", style={'fontWeight': 'bold'}),
             html.Span(f"{asa:.3f}", style={'color': asa_color, 'fontWeight': 'bold'})
         ], style={'marginBottom': '5px'}))
 
     if not metrics:
         return html.Div([
-            html.P("📊 Limited motion data available", style={'color': '#f39c12', 'fontStyle': 'italic'}),
+            html.P("Limited motion data available", style={'color': '#f39c12', 'fontStyle': 'italic'}),
             html.P("Some metrics may not be available for this patient", style={'color': '#bdc3c7', 'fontSize': '11px'})
         ])
     
@@ -973,20 +969,20 @@ def control_animation(play_clicks, pause_clicks, reset_clicks, speed, current_st
 
     if triggered_id == 'play-button':
         state['playing'] = True
-        return False, state, "🎬 Animation playing"
+        return False, state, "Animation playing"
     elif triggered_id == 'pause-button':
         state['playing'] = False
-        return True, state, "⏸️ Animation paused"
+        return True, state, "Animation paused"
     elif triggered_id == 'reset-button':
         state['time_phase'] = 0
         state['playing'] = True
-        return False, state, "🔄 Animation reset and playing"
+        return False, state, "Animation reset and playing"
     
     # Handle speed changes or initial load
     if state['playing']:
-        return False, state, "🎬 Animation playing"
+        return False, state, "Animation playing"
     else:
-        return True, state, "⏸️ Animation paused"
+        return True, state, "Animation paused"
 
 # Callback 3: The "Ticker" - updates the time phase on every interval
 @app.callback(
@@ -1064,5 +1060,5 @@ def update_all_visualizations(selected_patient, x_feature, y_feature, animation_
 
 # Run the App
 if __name__ == '__main__':
-    print("Starting FIXED Enhanced Multi-Modal Parkinson's Dashboard...")
+    print("Starting Enhanced Multi-Modal Parkinson's Dashboard...")
     app.run(debug=True) 

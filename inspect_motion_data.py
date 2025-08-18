@@ -82,7 +82,7 @@ class MotionDataInspector:
             }
             
         except Exception as e:
-            print(f"❌ Error analyzing gait data: {e}")
+            print(f"Error analyzing gait data: {e}")
     
     def analyze_digital_sensor_data(self):
         """Analyze digital sensor data for high-resolution motion"""
@@ -142,7 +142,7 @@ class MotionDataInspector:
             }
             
         except Exception as e:
-            print(f"❌ Error analyzing digital sensor data: {e}")
+            print(f"Error analyzing digital sensor data: {e}")
     
     def analyze_patient_sensor_files(self):
         """Analyze individual patient sensor files for detailed motion data"""
@@ -152,7 +152,7 @@ class MotionDataInspector:
         patient_files = glob.glob(os.path.join(sensor_dir, "Patient-*.xlsx"))
         
         if len(patient_files) == 0:
-            print("❌ No individual patient sensor files found")
+            print("No individual patient sensor files found")
             return
         
         print(f"Found {len(patient_files)} patient sensor files")
@@ -212,7 +212,7 @@ class MotionDataInspector:
                 }
                 
             except Exception as e:
-                print(f"❌ Error analyzing {filename}: {e}")
+                print(f"Error analyzing {filename}: {e}")
         
         self.motion_datasets['patient_files'] = detailed_analysis
     
@@ -358,7 +358,7 @@ class MotionDataInspector:
         ]
         
         for measure in key_measures:
-            print(f"  🎯 {measure}")
+            print(f"   {measure}")
         
         # Data availability assessment
         print(f"\nData Availability Assessment:")
