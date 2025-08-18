@@ -9,6 +9,7 @@ import os
 from scipy import stats
 import math
 import copy
+from dash import dcc, html, Input, Output, State, callback_context, Patch
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -539,6 +540,34 @@ df_clean = loader.load_all_datasets()
 # Initialize motion silhouette generator 
 motion_generator = MotionSilhouetteGenerator()
 
+initial_silhouette_fig = go.Figure()
+static_silhouette = motion_generator.generate_motion_frame(patient_data=None, time_phase=0)
+body_colors = {
+    'head': '#3498db', 'neck': '#2980b9', 'torso': '#2c3e50',
+    'left_upper_arm': '#e74c3c', 'left_forearm': '#c0392b', 'left_hand': '#a93226',
+    'right_upper_arm': '#27ae60', 'right_forearm': '#229954', 'right_hand': '#1e8449',
+    'left_thigh': '#f39c12', 'left_shin': '#e67e22', 'left_foot': '#d35400',
+    'right_thigh': '#9b59b6', 'right_shin': '#8e44ad', 'right_foot': '#7d3c98'
+}
+for part_name, coords in static_silhouette.items():
+    initial_silhouette_fig.add_trace(go.Scatter(
+        x=coords['x'] + [coords['x'][0]],
+        y=coords['y'] + [coords['y'][0]],
+        fill='toself',
+        fillcolor=body_colors.get(part_name, '#95a5a6'),
+        line=dict(color='black', width=1),
+        name=part_name.replace('_', ' ').title()
+    ))
+initial_silhouette_fig.update_layout(
+    xaxis=dict(range=[-3, 3], showgrid=False, zeroline=False, showticklabels=False, scaleanchor="y", scaleratio=1),
+    yaxis=dict(range=[-4, 9], showgrid=False, zeroline=False, showticklabels=False),
+    showlegend=False, plot_bgcolor='white', paper_bgcolor='white',
+    margin=dict(l=10, r=10, t=50, b=10), height=500,
+    # Add a title to the layout that we can update later
+    title_text="Motion Silhouette" 
+)
+
+
 if df_clean.empty:
     print("No data loaded. Please check file paths.")
     df_clean = pd.DataFrame()
@@ -654,12 +683,17 @@ app.layout = html.Div(style={'fontFamily': 'Arial', 'padding': '20px', 'backgrou
         dcc.Graph(id='main-correlation-plot', style={'height': '60vh'}),
         
         # Motion silhouette visualization 
-        html.Div(style={'backgroundColor': 'white', 'borderRadius': '10px', 'padding': '20px', 
-                       'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'}, children=[
-            html.H3("Real-Time Motion Silhouette", style={'color': '#2c3e50', 'marginBottom': '15px'}),
-            dcc.Graph(id='motion-silhouette-plot', style={'height': '45vh'}),
-            html.Div(id='motion-metrics-display', style={'marginTop': '10px', 'fontSize': '12px'})
-        ])
+        html.Div(id='silhouette-wrapper', # 👈 **ADD an ID here**
+               style={'backgroundColor': 'white', 'borderRadius': '10px', 'padding': '20px', 
+                      'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'}, children=[
+          html.H3("Real-Time Motion Silhouette", style={'color': '#2c3e50', 'marginBottom': '15px'}),
+          dcc.Graph(
+              id='motion-silhouette-plot', 
+              figure=initial_silhouette_fig, # 👈 **ASSIGN the initial figure**
+              style={'height': '45vh'}
+          ), 
+          html.Div(id='motion-metrics-display', style={'marginTop': '10px', 'fontSize': '12px'})
+      ])
     ]),
     
     # Motion Analysis Dashboard - Comprehensive motion-specific visualizations
@@ -689,7 +723,7 @@ app.layout = html.Div(style={'fontFamily': 'Arial', 'padding': '20px', 'backgrou
     # Animation timer for real-time updates - Proper continuous motion animation
     dcc.Interval(
         id='animation-interval',
-        interval=100,  # Faster for smoother animation
+        interval=50,  # Faster for smoother animation
         n_intervals=0,
         disabled=False  # <-- Enable by default
     ),
@@ -699,94 +733,6 @@ app.layout = html.Div(style={'fontFamily': 'Arial', 'padding': '20px', 'backgrou
     # Store for selected patient data to avoid constant lookups
     dcc.Store(id='patient-data-store')
 ])
-
-
-def create_motion_silhouette_plot(patient_data, motion_test, time_phase):
-    """Create real-time motion silhouette with proper error handling"""
-    
-    try:
-        # Generate motion frame using patient's actual data
-        silhouette_frame = motion_generator.generate_motion_frame(patient_data, motion_test, time_phase)
-        
-        fig = go.Figure()
-        
-        # Color scheme for different body parts
-        body_colors = {
-            'head': '#3498db', 'neck': '#2980b9', 'torso': '#2c3e50', 
-            'left_upper_arm': '#e74c3c', 'left_forearm': '#c0392b', 'left_hand': '#a93226',
-            'right_upper_arm': '#27ae60', 'right_forearm': '#229954', 'right_hand': '#1e8449',
-            'left_thigh': '#f39c12', 'left_shin': '#e67e22', 'left_foot': '#d35400',
-            'right_thigh': '#9b59b6', 'right_shin': '#8e44ad', 'right_foot': '#7d3c98'
-        }
-        
-        # Draw each body part with error checking
-        for part_name, coordinates in silhouette_frame.items():
-            if coordinates and 'x' in coordinates and 'y' in coordinates:
-                if coordinates['x'] and coordinates['y']:  # Check for valid coordinates
-                    try:
-                        fig.add_trace(go.Scatter(
-                            x=coordinates['x'] + [coordinates['x'][0]],  # Close the shape
-                            y=coordinates['y'] + [coordinates['y'][0]], 
-                            fill='toself',
-                            fillcolor=body_colors.get(part_name, '#95a5a6'),
-                            line=dict(color='black', width=1),
-                            name=part_name.replace('_', ' ').title(),
-                            hoverinfo='name',
-                            opacity=0.8
-                        ))
-                    except Exception as e:
-                        print(f"Error adding trace for {part_name}: {e}")
-                        continue
-        
-        # Add motion indicators with error checking
-        if patient_data:
-            try:
-                # Add asymmetry indicator
-                asymmetry = patient_data.get('ASA_U', 0)
-                if asymmetry and not pd.isna(asymmetry) and asymmetry > 0.5:
-                    fig.add_annotation(
-                        x=-2, y=8, text=f"⚠️ High Asymmetry: {asymmetry:.2f}",
-                        showarrow=False, bgcolor="rgba(231,76,60,0.9)",
-                        bordercolor="red", font=dict(color="white", size=10), borderwidth=1
-                    )
-                
-                # Add speed indicator
-                speed = patient_data.get('SP_U', 1.0)
-                if speed and not pd.isna(speed):
-                    if speed < 0.8:
-                        speed_status, status_color = "Slow Gait", "rgba(231,76,60,0.9)"
-                    elif speed > 1.2:
-                        speed_status, status_color = "Fast Gait", "rgba(52,152,219,0.9)"
-                    else:
-                        speed_status, status_color = "Normal Gait", "rgba(46,204,113,0.9)"
-                    
-                    fig.add_annotation(
-                        x=2, y=8, text=f"{speed_status}<br>{speed:.2f} m/s",
-                        showarrow=False, bgcolor=status_color, bordercolor="gray",
-                        font=dict(color="white", size=10), borderwidth=1
-                    )
-            except Exception as e:
-                print(f"Error adding annotations: {e}")
-        
-        # Configure layout
-        fig.update_layout(
-            title=f"Motion Silhouette - {motion_test.replace('_', ' ').title()} Test<br><sub>Phase: {time_phase:.1f} rad</sub>",
-            xaxis=dict(range=[-3, 3], showgrid=False, zeroline=False, showticklabels=False, scaleanchor="y", scaleratio=1),
-            yaxis=dict(range=[-4, 9], showgrid=False, zeroline=False, showticklabels=False),
-            showlegend=False, plot_bgcolor='white', paper_bgcolor='white',
-            margin=dict(l=10, r=10, t=50, b=10), height=500
-        )
-        
-        motion_metrics = create_motion_metrics_display(patient_data, motion_test)
-        return fig, motion_metrics
-        
-    except Exception as e:
-        print(f"Error in create_motion_silhouette_plot: {e}")
-        fig = go.Figure()
-        fig.add_annotation(text=f"Error generating motion silhouette: {str(e)}", showarrow=False)
-        fig.update_layout(title="Motion Silhouette - Error", height=500)
-        error_metrics = html.Div([html.P("Error generating motion metrics", style={'color': 'red'})])
-        return fig, error_metrics
 
 def create_motion_metrics_display(patient_data, motion_test):
     """Create motion metrics display using actual patient data"""
@@ -998,39 +944,52 @@ def update_animation_phase(n_intervals, current_state):
     """
     if current_state and current_state.get('playing'):
         # Increment time_phase based on speed
-        current_state['time_phase'] = (current_state['time_phase'] + current_state['speed'] * 0.1) % (2 * math.pi)
+        current_state['time_phase'] = (current_state['time_phase'] + current_state['speed'] * 0.2) % (2 * math.pi)
         return current_state
     return dash.no_update
 
-# Callback 4: The "Renderer" - creates the silhouette when the state changes
+# Callback 4: The "Renderer" - UPDATES the silhouette using Patch for high performance
 @app.callback(
-    [Output('motion-silhouette-plot', 'figure'),
-     Output('motion-metrics-display', 'children')],
-    [Input('patient-data-store', 'data'),
-     Input('animation-state', 'data'),
-     Input('motion-test-dropdown', 'value')]
+    Output('motion-silhouette-plot', 'figure'),
+    Output('motion-metrics-display', 'children'), # We update the metrics directly
+    Input('patient-data-store', 'data'),
+    Input('animation-state', 'data'),
+    Input('motion-test-dropdown', 'value'),
+    prevent_initial_call=True
 )
 def update_motion_silhouette(patient_data, animation_state, motion_test):
     """
-    This is the main rendering callback. It's triggered only when the
-    underlying data (patient or animation frame) changes. It is NOT
-    triggered directly by the high-frequency interval.
+    This is the high-performance rendering callback.
+    It ONLY sends the updated coordinates and title to the browser.
     """
     if not patient_data or not animation_state:
-        return go.Figure(), "Select a patient to begin."
+        return dash.no_update, dash.no_update
 
     time_phase = animation_state.get('time_phase', 0)
+    motion_test = motion_test or 'gait'
     
-    try:
-        fig_silhouette, motion_metrics = create_motion_silhouette_plot(patient_data, motion_test or 'gait', time_phase)
-        return fig_silhouette, motion_metrics
-    except Exception as e:
-        print(f"Error in motion silhouette generation: {e}")
-        empty_fig = go.Figure().add_annotation(text=f"Error: {e}", showarrow=False)
-        error_msg = html.Div(f"Error: {e}", style={'color': 'red'})
-        return empty_fig, error_msg
+    # 1. Generate the new coordinates for the current frame
+    silhouette_frame = motion_generator.generate_motion_frame(patient_data, motion_test, time_phase)
 
-# Callback 5: Update all other (static) visualizations
+    # 2. Create a Patch object to apply updates
+    patched_figure = Patch()
+
+    # 3. Patch the coordinates for each body part trace
+    trace_index = 0
+    for part_name, coords in silhouette_frame.items():
+        patched_figure['data'][trace_index]['x'] = coords['x'] + [coords['x'][0]]
+        patched_figure['data'][trace_index]['y'] = coords['y'] + [coords['y'][0]]
+        trace_index += 1
+        
+    # 4. Patch the figure's title to show the current animation phase
+    new_title_text = f"Motion: {motion_test.title()} (Phase: {time_phase:.2f})"
+    patched_figure['layout']['title']['text'] = new_title_text
+
+    # 5. Generate the lightweight metrics component
+    motion_metrics = create_motion_metrics_display(patient_data, motion_test)
+    
+    # 6. Return the patch for the figure and the new metrics component
+    return patched_figure, motion_metrics
 @app.callback(
     [Output('main-correlation-plot', 'figure'),
      Output('bilateral-asymmetry-motion', 'figure'),
