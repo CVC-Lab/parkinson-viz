@@ -809,9 +809,9 @@ def create_motion_metrics_display(patient_data, motion_test):
     
     if 'ASA_U' in patient_data and not pd.isna(patient_data['ASA_U']):
         asa = patient_data['ASA_U']
-        if asa < 0.2: asa_color = '#27ae60
-        elif asa < 0.5: asa_color = '#f39c12
-        else: asa_color = '#e74c3c
+        if asa < 0.2: asa_color = '#27ae60'
+        elif asa < 0.5: asa_color = '#f39c12'
+        else: asa_color = '#e74c3c'
         metrics.append(html.Div([
             html.Span(f"{asa:.3f}", style={'color': asa_color, 'fontWeight': 'bold'})
         ], style={'marginBottom': '5px'}))
