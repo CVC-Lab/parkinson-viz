@@ -745,31 +745,45 @@ def update_motion_silhouette(selected_patient, motion_test, animation_speed, n_i
 @app.callback(
     [Output('main-correlation-plot', 'figure'),
      Output('bilateral-asymmetry-motion', 'figure'),
-     Output('gait-cycle-analysis', 'figure'),
      Output('motion-quality-assessment', 'figure')],
     [Input('patient-dropdown', 'value'),
      Input('x-axis-dropdown', 'value'),
-     Input('y-axis-dropdown', 'value'),
-     Input('animation-interval', 'n_intervals')]
+     Input('y-axis-dropdown', 'value')]
 )
-def update_static_visualizations(selected_patient, x_feature, y_feature, n_intervals):
+def update_static_visualizations(selected_patient, x_feature, y_feature):
     """Update static visualizations"""
     
     if df_clean.empty:
         empty_fig = go.Figure()
         empty_fig.add_annotation(text="No data available", xref="paper", yref="paper", x=0.5, y=0.5)
-        return [empty_fig] * 4
-    
-    # Calculate current animation phase for gait cycle
-    time_phase = (n_intervals * 0.05) % (2 * math.pi)
+        return [empty_fig] * 3
     
     # Generate visualizations
     fig_main = create_enhanced_correlation_plot(df_clean, x_feature, y_feature, selected_patient)
     fig_bilateral = create_bilateral_asymmetry_motion(df_clean, selected_patient)
-    fig_gait_cycle = create_gait_cycle_analysis(df_clean, selected_patient, time_phase)
     fig_motion_quality = create_motion_quality_assessment(df_clean, selected_patient)
     
-    return fig_main, fig_bilateral, fig_gait_cycle, fig_motion_quality
+    return fig_main, fig_bilateral, fig_motion_quality
+
+@app.callback(
+    Output('gait-cycle-analysis', 'figure'),
+    [Input('patient-dropdown', 'value'),
+     Input('animation-interval', 'n_intervals')]
+)
+def update_gait_cycle_animation(selected_patient, n_intervals):
+    """Update the gait cycle plot with the animation phase line"""
+    if df_clean.empty:
+        empty_fig = go.Figure()
+        empty_fig.add_annotation(text="No data available", xref="paper", yref="paper", x=0.5, y=0.5)
+        return empty_fig
+    
+    # Use the same time_phase logic as the silhouette
+    # The animation_speed slider could also be an Input here for perfect sync, but this is simpler
+    time_phase = (n_intervals * 0.2) % (2 * math.pi) 
+    
+    fig_gait_cycle = create_gait_cycle_analysis(df_clean, selected_patient, time_phase)
+    
+    return fig_gait_cycle
 
 @app.callback(
     [Output('animation-interval', 'disabled'),
