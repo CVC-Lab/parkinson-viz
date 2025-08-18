@@ -10,6 +10,7 @@ import numpy as np
 import os
 from scipy import stats
 import math
+import copy
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -462,7 +463,7 @@ class MotionSilhouetteGenerator:
         """Apply calculated motion modifications to base silhouette with natural constraints"""
         
         silhouette = {}
-        base = self.silhouette_base
+        base = copy.deepcopy(self.silhouette_base)
         
         # Get modification values with defaults
         left_arm_swing = modifications.get('left_arm_swing', 0)
