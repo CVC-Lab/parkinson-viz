@@ -20,6 +20,14 @@ const state = {
     animationFrameId: null
 };
 
+// Plotly configuration for all charts
+const plotlyConfig = {
+    responsive: true,
+    displayModeBar: true,
+    displaylogo: false,
+    modeBarButtonsToRemove: ['lasso2d', 'select2d']
+};
+
 // Initialize application
 async function init() {
     console.log('🚀 Initializing Parkinson\'s Motion Visualization...');
@@ -31,6 +39,9 @@ async function init() {
     try {
         // Load data
         await state.dataLoader.loadAllDatasets();
+
+        // Initialize with average patient data
+        state.currentPatientData = state.dataLoader.getAveragePatientData();
 
         // Populate patient dropdown
         populatePatientDropdown();
@@ -149,7 +160,7 @@ function updateMainCorrelationPlot() {
         Plotly.newPlot('main-correlation-plot', [], {
             title: 'No valid data for selected features',
             template: 'plotly_white'
-        });
+        }, plotlyConfig);
         return;
     }
 
@@ -212,7 +223,7 @@ function updateMainCorrelationPlot() {
         margin: { l: 60, r: 30, t: 50, b: 60 }
     };
 
-    Plotly.newPlot('main-correlation-plot', traces, layout, { responsive: true });
+    Plotly.newPlot('main-correlation-plot', traces, layout, plotlyConfig);
 }
 
 function updateMotionSilhouette() {
@@ -264,7 +275,7 @@ function updateMotionSilhouette() {
         height: 450
     };
 
-    Plotly.react('motion-silhouette-plot', traces, layout, { responsive: true });
+    Plotly.react('motion-silhouette-plot', traces, layout, plotlyConfig);
 
     // Update metrics display
     updateMotionMetrics(patientData, motionTest);
@@ -310,7 +321,7 @@ function updateBilateralAsymmetryMotion() {
         Plotly.newPlot('bilateral-asymmetry-motion', [], {
             title: 'Bilateral arm data not available',
             template: 'plotly_white'
-        });
+        }, plotlyConfig);
         return;
     }
 
@@ -379,7 +390,7 @@ function updateBilateralAsymmetryMotion() {
         margin: { l: 60, r: 30, t: 50, b: 60 }
     };
 
-    Plotly.newPlot('bilateral-asymmetry-motion', traces, layout, { responsive: true });
+    Plotly.newPlot('bilateral-asymmetry-motion', traces, layout, plotlyConfig);
 }
 
 function updateGaitCycleAnalysis() {
@@ -387,7 +398,7 @@ function updateGaitCycleAnalysis() {
         Plotly.newPlot('gait-cycle-analysis', [], {
             title: 'Select a patient to see gait cycle',
             template: 'plotly_white'
-        });
+        }, plotlyConfig);
         return;
     }
 
@@ -441,7 +452,7 @@ function updateGaitCycleAnalysis() {
         margin: { l: 60, r: 30, t: 50, b: 60 }
     };
 
-    Plotly.react('gait-cycle-analysis', traces, layout, { responsive: true });
+    Plotly.react('gait-cycle-analysis', traces, layout, plotlyConfig);
 }
 
 function updateMotionQualityAssessment() {
@@ -449,7 +460,7 @@ function updateMotionQualityAssessment() {
         Plotly.newPlot('motion-quality-assessment', [], {
             title: 'Select a patient to see quality assessment',
             template: 'plotly_white'
-        });
+        }, plotlyConfig);
         return;
     }
 
@@ -480,7 +491,7 @@ function updateMotionQualityAssessment() {
         margin: { l: 60, r: 60, t: 50, b: 60 }
     };
 
-    Plotly.newPlot('motion-quality-assessment', [trace], layout, { responsive: true });
+    Plotly.newPlot('motion-quality-assessment', [trace], layout, plotlyConfig);
 }
 
 // Initialize when DOM is ready

@@ -118,6 +118,7 @@ export const FEATURE_LABELS = {
 };
 
 export const COHORT_COLORS = {
+    "Parkinson's Disease": '#e74c3c',
     'PD': '#e74c3c',
     'Healthy Control': '#27ae60',
     'Prodromal': '#f39c12',
