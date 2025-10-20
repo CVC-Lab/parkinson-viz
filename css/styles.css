@@ -1,0 +1,257 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f8f9fa;
+    color: #2c3e50;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+h1 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+    font-size: 2rem;
+}
+
+.subtitle {
+    color: #7f8c8d;
+    font-size: 1rem;
+}
+
+/* Control Panel */
+.control-panel {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    flex-wrap: wrap;
+}
+
+.control-group {
+    flex: 1;
+    min-width: 180px;
+}
+
+.control-group label {
+    display: block;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+}
+
+.control-group select,
+.control-group input[type="range"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 0.9rem;
+}
+
+.control-group input[type="range"] {
+    padding: 0;
+}
+
+#speed-display {
+    font-weight: bold;
+    color: #27ae60;
+}
+
+/* Main Grid */
+.main-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.silhouette-panel {
+    background-color: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.silhouette-panel h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+}
+
+/* Analysis Grid */
+.dashboard-title {
+    color: #2c3e50;
+    margin: 40px 0 20px 0;
+    font-size: 1.5rem;
+}
+
+.analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+/* Plot Containers */
+.plot-container,
+.plot-container-small,
+.plot-container-medium {
+    background-color: white;
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.plot-container {
+    min-height: 60vh;
+}
+
+.plot-container-small {
+    min-height: 45vh;
+}
+
+.plot-container-medium {
+    min-height: 40vh;
+}
+
+/* Metrics Display */
+.metrics-display {
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: #7f8c8d;
+}
+
+.metric-item {
+    margin-bottom: 5px;
+}
+
+.metric-label {
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.metric-value {
+    font-weight: bold;
+}
+
+.metric-value.good { color: #27ae60; }
+.metric-value.warning { color: #f39c12; }
+.metric-value.alert { color: #e74c3c; }
+
+/* Animation Controls */
+.animation-controls {
+    background-color: white;
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 30px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.animation-controls h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+}
+
+.button-group {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.btn:hover {
+    opacity: 0.8;
+}
+
+.btn-play {
+    background-color: #27ae60;
+    color: white;
+}
+
+.btn-pause {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.btn-reset {
+    background-color: #95a5a6;
+    color: white;
+}
+
+.status-text {
+    margin-left: 20px;
+    color: #2c3e50;
+    font-size: 0.95rem;
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    padding: 20px;
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    margin-top: 40px;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .main-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .analysis-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .control-panel {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 768px) {
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    .subtitle {
+        font-size: 0.9rem;
+    }
+
+    .button-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .status-text {
+        margin-left: 0;
+        margin-top: 10px;
+    }
+}
