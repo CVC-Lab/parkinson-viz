@@ -3,96 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Modal Parkinson's Disease Motion Visualization</title>
+    <title>Parkinson's Disease — Motion &amp; Gait Visualization</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="preconnect" href="https://unpkg.com">
+    <link rel="preconnect" href="https://cdn.plot.ly">
     <link rel="stylesheet" href="css/styles.css">
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <!-- Plotly (2D analysis charts) -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
+
+    <!-- Three.js (3D figure) via ES module import map -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Multi-Modal Parkinson's Disease Analysis with Motion Silhouettes</h1>
-            <p class="subtitle">Real-time patient motion visualization through anatomical silhouettes and multi-modal data integration</p>
+    <div class="app">
+        <!-- ───────────────────────── Header ───────────────────────── -->
+        <header class="site-header">
+            <div class="site-header__titles">
+                <h1>Parkinson's Disease — Motion &amp; Gait Visualization</h1>
+                <p class="subtitle">
+                    Patient-specific gait, arm-swing asymmetry, and dual-task cost from the PPMI cohort,
+                    rendered as a real-time articulated 3D model.
+                </p>
+            </div>
+            <p class="provenance">
+                Data: Parkinson's Progression Markers Initiative (PPMI)
+                <span class="dot">·</span> 190 visit records, 86 participants
+            </p>
         </header>
 
-        <!-- Control Panel -->
-        <div class="control-panel">
-            <div class="control-group">
-                <label for="patient-select">Select Patient:</label>
+        <!-- ───────────────────────── Controls ───────────────────────── -->
+        <section class="controls" aria-label="Visualization controls">
+            <div class="control">
+                <label for="patient-select">Participant</label>
                 <select id="patient-select">
-                    <option value="">Loading patients...</option>
+                    <option value="">Cohort average</option>
                 </select>
             </div>
 
-            <div class="control-group">
-                <label for="motion-test-select">Motion Test Type:</label>
+            <div class="control">
+                <label for="motion-test-select">Motion test</label>
                 <select id="motion-test-select">
-                    <option value="gait">Gait/Walking Test</option>
-                    <option value="tug">TUG Test (Timed Up & Go)</option>
-                    <option value="balance">Postural Sway/Balance</option>
-                    <option value="free">Free Motion</option>
+                    <option value="gait">Gait / Walking</option>
+                    <option value="tug">Timed Up &amp; Go (TUG)</option>
+                    <option value="balance">Postural Sway / Balance</option>
+                    <option value="free">Free / Idle</option>
                 </select>
             </div>
 
-            <div class="control-group">
-                <label for="animation-speed">Animation Speed: <span id="speed-display">1.0x</span></label>
+            <div class="control">
+                <label for="animation-speed">Speed <span id="speed-display" class="value">1.0×</span></label>
                 <input type="range" id="animation-speed" min="0.1" max="3.0" step="0.1" value="1.0">
             </div>
 
-            <div class="control-group">
-                <label for="x-axis-select">X-Axis Feature:</label>
-                <select id="x-axis-select">
-                    <option value="CLINICAL_MOTOR_SEVERITY">UPDRS-III Motor Score</option>
-                    <option value="OBJECTIVE_MOTOR_SCORE">Objective Motor Impairment</option>
-                    <option value="SP_U">Gait Speed (m/s)</option>
-                    <option value="ASA_U">Arm Swing Asymmetry</option>
-                    <option value="SENSOR_MEAN">Digital Sensor Response</option>
-                </select>
+            <div class="control control--buttons">
+                <label>Playback</label>
+                <div class="btn-row">
+                    <button id="play-button" class="btn btn--primary" aria-pressed="true">Play</button>
+                    <button id="pause-button" class="btn">Pause</button>
+                    <button id="reset-button" class="btn">Reset</button>
+                </div>
             </div>
 
-            <div class="control-group">
-                <label for="y-axis-select">Y-Axis Feature:</label>
-                <select id="y-axis-select">
-                    <option value="MOVEMENT_QUALITY">Movement Quality Index</option>
-                    <option value="OBJECTIVE_MOTOR_SCORE">Objective Motor Impairment</option>
-                    <option value="SP_U">Gait Speed (m/s)</option>
-                    <option value="BILATERAL_COORDINATION">Bilateral Coordination Score</option>
-                    <option value="SENSOR_CLINICAL_RATIO">Sensor-Clinical Correlation</option>
-                </select>
+            <div class="control control--status">
+                <label>Status</label>
+                <span id="animation-status" class="status-pill is-playing">Playing</span>
             </div>
-        </div>
+        </section>
 
-        <!-- Main Visualization Area -->
-        <div class="main-grid">
-            <div id="main-correlation-plot" class="plot-container"></div>
-
-            <div class="silhouette-panel">
-                <h3>Real-Time Motion Silhouette</h3>
-                <div id="motion-silhouette-plot" class="plot-container-small"></div>
-                <div id="motion-metrics-display" class="metrics-display"></div>
+        <!-- ───────────────────── Stage: 3D figure + clinical card ───────────────────── -->
+        <section class="stage">
+            <!-- 3D figure -->
+            <div class="panel panel--figure">
+                <div class="panel__head">
+                    <h2>Real-time 3D motion model</h2>
+                    <div class="view-presets" role="group" aria-label="Camera view">
+                        <button class="chip" data-view="threeQuarter" aria-pressed="true">¾</button>
+                        <button class="chip" data-view="front">Front</button>
+                        <button class="chip" data-view="side">Side</button>
+                        <button class="chip" data-view="top">Top</button>
+                        <button class="chip chip--reset" data-view="reset" title="Reset camera">Reset</button>
+                    </div>
+                </div>
+                <div id="figure-3d" class="figure-3d">
+                    <div id="figure-3d-loading" class="figure-3d__loading">Loading 3D model…</div>
+                </div>
+                <div class="panel__foot">
+                    <span id="figure-caption" class="figure-caption">Gait / Walking</span>
+                    <span class="hint">Drag to orbit · scroll to zoom</span>
+                </div>
             </div>
-        </div>
 
-        <!-- Motion Analysis Dashboard -->
-        <h2 class="dashboard-title">Dynamic Motion Analysis Dashboard</h2>
-        <div class="analysis-grid">
-            <div id="bilateral-asymmetry-motion" class="plot-container-medium"></div>
-            <div id="gait-cycle-analysis" class="plot-container-medium"></div>
-            <div id="motion-quality-assessment" class="plot-container-medium"></div>
-        </div>
+            <!-- Clinical summary -->
+            <aside class="panel panel--summary">
+                <div class="panel__head">
+                    <h2>Participant summary</h2>
+                    <span id="cohort-badge" class="badge">Cohort average</span>
+                </div>
+                <div id="patient-summary" class="summary-grid">
+                    <!-- populated by app.js -->
+                </div>
+                <div class="panel__head panel__head--sub">
+                    <h3>Movement metrics</h3>
+                </div>
+                <div id="motion-metrics-display" class="metrics"></div>
+            </aside>
+        </section>
 
-        <!-- Animation Controls -->
-        <div class="animation-controls">
-            <h3>Motion Animation Controls</h3>
-            <div class="button-group">
-                <button id="play-button" class="btn btn-play">Play</button>
-                <button id="pause-button" class="btn btn-pause">Pause</button>
-                <button id="reset-button" class="btn btn-reset">Reset</button>
-                <span id="animation-status" class="status-text">Animation playing</span>
+        <!-- ───────────────────────── Analysis ───────────────────────── -->
+        <section class="analysis">
+            <div class="section-head">
+                <h2>Cohort &amp; movement analysis</h2>
+                <div class="axis-controls">
+                    <div class="control control--inline">
+                        <label for="x-axis-select">X</label>
+                        <select id="x-axis-select">
+                            <option value="CLINICAL_MOTOR_SEVERITY">UPDRS-III motor score</option>
+                            <option value="OBJECTIVE_MOTOR_SCORE">Objective motor impairment</option>
+                            <option value="SP_U">Gait speed (m/s)</option>
+                            <option value="ASA_U">Arm-swing asymmetry</option>
+                            <option value="CAD_U">Cadence (steps/min)</option>
+                        </select>
+                    </div>
+                    <div class="control control--inline">
+                        <label for="y-axis-select">Y</label>
+                        <select id="y-axis-select">
+                            <option value="MOVEMENT_QUALITY">Movement quality index</option>
+                            <option value="OBJECTIVE_MOTOR_SCORE">Objective motor impairment</option>
+                            <option value="SP_U">Gait speed (m/s)</option>
+                            <option value="BILATERAL_COORDINATION">Bilateral coordination</option>
+                            <option value="DUAL_TASK_COST">Dual-task gait cost (%)</option>
+                        </select>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <footer>
-            <p>Data from PPMI (Parkinson's Progression Markers Initiative) | Built with Plotly.js</p>
+            <div class="panel panel--plot">
+                <div id="main-correlation-plot" class="plot"></div>
+            </div>
+
+            <div class="analysis-grid">
+                <div class="panel panel--plot">
+                    <div id="bilateral-asymmetry-motion" class="plot"></div>
+                </div>
+                <div class="panel panel--plot">
+                    <div id="gait-cycle-analysis" class="plot"></div>
+                </div>
+                <div class="panel panel--plot">
+                    <div id="motion-quality-assessment" class="plot"></div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="site-footer">
+            <p>
+                Parkinson's Progression Markers Initiative (PPMI) · de-identified participant IDs ·
+                3D model: Three.js · charts: Plotly.js
+            </p>
         </footer>
     </div>
 

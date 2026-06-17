@@ -1,127 +1,113 @@
 /**
- * Parkinson Data Loader - JavaScript Port
- * Loads and processes multi-modal Parkinson's datasets
+ * data-loader.js — Loads the pre-processed PPMI dataset and exposes helpers.
+ *
+ * Adds a derived DUAL_TASK_COST (% gait-speed slowing from single- to dual-task),
+ * which is a core biomarker in the source research but was unused before.
  */
 
 export class ParkinsonDataLoader {
     constructor() {
-        this.data = {};
         this.mergedData = [];
     }
 
     async loadAllDatasets() {
-        console.log('Loading datasets...');
+        const response = await fetch('data/merged_data.json');
+        if (!response.ok) throw new Error(`Failed to load data: ${response.statusText}`);
+        this.mergedData = await response.json();
 
-        try {
-            // Load merged dataset directly (pre-processed)
-            const response = await fetch('data/merged_data.json');
-            if (!response.ok) {
-                throw new Error(`Failed to load data: ${response.statusText}`);
-            }
-
-            this.mergedData = await response.json();
-            console.log(`✓ Loaded ${this.mergedData.length} patient records`);
-
-            return this.mergedData;
-        } catch (error) {
-            console.error('Error loading datasets:', error);
-            throw error;
+        // Derived: dual-task gait cost = % slowing in speed under cognitive load.
+        for (const row of this.mergedData) {
+            row.DUAL_TASK_COST = dualTaskCost(row.SP_U, row.SP__DT);
         }
+        return this.mergedData;
     }
 
     getPatients() {
-        const patients = [...new Set(this.mergedData.map(row => row.PATNO))];
-        return patients.sort((a, b) => a - b);
+        return [...new Set(this.mergedData.map(r => r.PATNO))].sort((a, b) => a - b);
     }
 
     getPatientData(patno) {
-        return this.mergedData.find(row => row.PATNO === patno) || null;
+        return this.mergedData.find(r => r.PATNO === patno) || null;
     }
 
     getFeatureStats(feature) {
         const values = this.mergedData
-            .map(row => row[feature])
+            .map(r => r[feature])
             .filter(v => v !== null && v !== undefined && !isNaN(v));
-
-        if (values.length === 0) return null;
-
+        if (!values.length) return null;
         return {
             mean: values.reduce((a, b) => a + b, 0) / values.length,
             min: Math.min(...values),
             max: Math.max(...values),
-            count: values.length
+            count: values.length,
         };
     }
 
-    getDataByCohort(cohortName) {
-        return this.mergedData.filter(row => row.COHORT_NAME === cohortName);
-    }
-
     getValidDataForFeatures(xFeature, yFeature) {
-        return this.mergedData.filter(row => {
-            const x = row[xFeature];
-            const y = row[yFeature];
+        return this.mergedData.filter(r => {
+            const x = r[xFeature], y = r[yFeature];
             return x !== null && x !== undefined && !isNaN(x) &&
                    y !== null && y !== undefined && !isNaN(y);
         });
     }
 
     getCohortCounts() {
-        const cohorts = {};
-        this.mergedData.forEach(row => {
-            const cohort = row.COHORT_NAME || 'Unknown';
-            cohorts[cohort] = (cohorts[cohort] || 0) + 1;
+        const counts = {};
+        this.mergedData.forEach(r => {
+            const c = r.COHORT_NAME || 'Unknown';
+            counts[c] = (counts[c] || 0) + 1;
         });
-        return cohorts;
+        return counts;
     }
 
     getAveragePatientData() {
-        // Calculate average values for all numeric features
-        const avg = {};
-        const numericFields = [
-            'LA_AMP_U', 'RA_AMP_U', 'SP_U', 'ASA_U',
-            'L_JERK_U', 'R_JERK_U', 'MOVEMENT_QUALITY',
-            'BILATERAL_COORDINATION', 'CLINICAL_MOTOR_SEVERITY'
+        const avg = { PATNO: null, COHORT_NAME: 'Cohort average' };
+        const fields = [
+            'LA_AMP_U', 'RA_AMP_U', 'SP_U', 'SP__DT', 'CAD_U', 'ASA_U',
+            'L_JERK_U', 'R_JERK_U', 'MOVEMENT_QUALITY', 'BILATERAL_COORDINATION',
+            'CLINICAL_MOTOR_SEVERITY', 'NP3TOT', 'NHY', 'DUAL_TASK_COST',
+            'LA_AMP_DT', 'RA_AMP_DT', 'NP3PTRMR', 'NP3PTRML',
         ];
-
-        numericFields.forEach(field => {
-            const stats = this.getFeatureStats(field);
-            if (stats) {
-                avg[field] = stats.mean;
-            }
+        fields.forEach(f => {
+            const s = this.getFeatureStats(f);
+            if (s) avg[f] = s.mean;
         });
-
         return avg;
     }
 }
 
+function dualTaskCost(spU, spDT) {
+    const a = Number(spU), b = Number(spDT);
+    if (!a || isNaN(a) || isNaN(b)) return null;
+    return ((a - b) / a) * 100;
+}
+
 export const FEATURE_LABELS = {
-    'ASA_U': 'Arm Swing Asymmetry',
-    'SP_U': 'Gait Speed (m/s)',
-    'RA_AMP_U': 'Right Arm Amplitude',
-    'LA_AMP_U': 'Left Arm Amplitude',
-    'ARM_ASYMMETRY': 'Arm Amplitude Asymmetry Index',
-    'R_JERK_U': 'Right Arm Jerk (Smoothness)',
-    'L_JERK_U': 'Left Arm Jerk (Smoothness)',
-    'JERK_ASYMMETRY': 'Bilateral Jerk Asymmetry',
-    'TOTAL_JERK': 'Total Movement Jerk',
-    'MOVEMENT_QUALITY': 'Movement Quality Index',
-    'BILATERAL_COORDINATION': 'Bilateral Coordination Score',
-    'CLINICAL_MOTOR_SEVERITY': 'UPDRS-III Motor Score',
-    'PATIENT_REPORTED_SEVERITY': 'UPDRS-II Patient Score',
-    'AGE_ADJUSTED_SEVERITY': 'Age-Adjusted Motor Severity',
-    'OBJECTIVE_MOTOR_SCORE': 'Objective Motor Impairment',
-    'SENSOR_CLINICAL_RATIO': 'Sensor-Clinical Correlation',
-    'SENSOR_MEAN': 'Digital Sensor Response (Mean)',
-    'SENSOR_STD': 'Digital Sensor Variability',
-    'SENSOR_COUNT': 'Digital Assessment Frequency'
+    ASA_U: 'Arm-swing asymmetry',
+    SP_U: 'Gait speed (m/s)',
+    CAD_U: 'Cadence (steps/min)',
+    RA_AMP_U: 'Right arm amplitude',
+    LA_AMP_U: 'Left arm amplitude',
+    ARM_ASYMMETRY: 'Arm amplitude asymmetry index',
+    R_JERK_U: 'Right arm jerk (smoothness)',
+    L_JERK_U: 'Left arm jerk (smoothness)',
+    TOTAL_JERK: 'Total movement jerk',
+    MOVEMENT_QUALITY: 'Movement quality index',
+    BILATERAL_COORDINATION: 'Bilateral coordination',
+    CLINICAL_MOTOR_SEVERITY: 'UPDRS-III motor score',
+    PATIENT_REPORTED_SEVERITY: 'UPDRS-II patient score',
+    AGE_ADJUSTED_SEVERITY: 'Age-adjusted motor severity',
+    OBJECTIVE_MOTOR_SCORE: 'Objective motor impairment',
+    DUAL_TASK_COST: 'Dual-task gait cost (%)',
+    SENSOR_MEAN: 'Digital sensor response (mean)',
 };
 
+// Muted, accessible categorical palette — restrained, not "rainbow".
 export const COHORT_COLORS = {
-    "Parkinson's Disease": '#e74c3c',
-    'PD': '#e74c3c',
-    'Healthy Control': '#27ae60',
-    'Prodromal': '#f39c12',
-    'SWEDD': '#3498db',
-    'Unknown': '#95a5a6'
+    "Parkinson's Disease": '#c2533f',
+    PD: '#c2533f',
+    'Healthy Control': '#3f7d6e',
+    Prodromal: '#c2913e',
+    SWEDD: '#4a6fa5',
+    Unknown: '#9aa3ad',
 };

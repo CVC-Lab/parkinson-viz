@@ -1,500 +1,232 @@
 /**
- * Multi-Modal Parkinson's Disease Motion Visualization
- * Main Application Entry Point
+ * app.js — Orchestration: data + 3D figure + motion engine + charts + controls.
  */
 
 import { ParkinsonDataLoader, FEATURE_LABELS, COHORT_COLORS } from './data-loader.js';
-import { MotionSilhouetteGenerator } from './motion-generator.js';
+import { Figure3D } from './figure3d.js';
+import { computePose, gaitPhase, affectedArm } from './motion.js';
+import {
+    correlationPlot, bilateralPlot, gaitCyclePlot, updateGaitPhase, qualityRadar,
+} from './charts.js';
 
-// Global state
 const state = {
-    dataLoader: null,
-    motionGenerator: null,
-    selectedPatient: null,
-    currentPatientData: null,
-    animationState: {
-        playing: true,
-        timePhase: 0,
-        speed: 1.0
-    },
-    animationFrameId: null
+    loader: null,
+    figure: null,
+    patient: null,          // current participant data (or cohort average)
+    motionType: 'gait',
+    speed: 1.0,
+    playing: true,
+    clock: 0,               // seconds of motion time (scaled by speed)
+    phaseAccum: 0,          // throttle for gait-phase chart updates
 };
 
-// Plotly configuration for all charts
-const plotlyConfig = {
-    responsive: true,
-    displayModeBar: true,
-    displaylogo: false,
-    modeBarButtonsToRemove: ['lasso2d', 'select2d']
-};
+const $ = (id) => document.getElementById(id);
 
-// Initialize application
 async function init() {
-    console.log('🚀 Initializing Parkinson\'s Motion Visualization...');
+    state.loader = new ParkinsonDataLoader();
+    try {
+        await state.loader.loadAllDatasets();
+    } catch (err) {
+        $('figure-3d').innerHTML = `<div class="figure-3d__loading">Could not load data.<br><small>${err.message}</small></div>`;
+        return;
+    }
 
-    // Initialize data loader and motion generator
-    state.dataLoader = new ParkinsonDataLoader();
-    state.motionGenerator = new MotionSilhouetteGenerator();
+    state.patient = state.loader.getAveragePatientData();
 
     try {
-        // Load data
-        await state.dataLoader.loadAllDatasets();
+        state.figure = new Figure3D($('figure-3d'), { onFrame });
+        state.figure.start();
+        const loading = $('figure-3d-loading');
+        if (loading) loading.remove();
+    } catch (err) {
+        $('figure-3d').innerHTML = `<div class="figure-3d__loading">3D model failed to load.<br><small>${err.message}</small></div>`;
+    }
 
-        // Initialize with average patient data
-        state.currentPatientData = state.dataLoader.getAveragePatientData();
+    populatePatients();
+    wireControls();
+    applyPatient();          // summary, metrics, charts, accent
+    drawAllCharts();
+}
 
-        // Populate patient dropdown
-        populatePatientDropdown();
+// ── Animation frame (driven by Figure3D's render loop) ──────────────────────
+function onFrame(dt) {
+    if (state.playing) state.clock += dt * state.speed;
 
-        // Set up event listeners
-        setupEventListeners();
+    if (state.figure) {
+        const pose = computePose(state.patient, state.motionType, state.clock);
+        state.figure.applyPose(pose);
+    }
 
-        // Initialize visualizations with default data
-        updateAllVisualizations();
-
-        // Start animation loop
-        startAnimation();
-
-        console.log('✅ Application initialized successfully!');
-    } catch (error) {
-        console.error('❌ Error initializing application:', error);
-        alert('Error loading data. Please check the console for details.');
+    // Caption + throttled gait-phase marker.
+    if (state.motionType === 'gait' || state.motionType === 'tug') {
+        const ph = gaitPhase(state.patient, state.clock);
+        $('figure-caption').textContent = captionFor(state.motionType, ph);
+        state.phaseAccum += dt;
+        if (state.phaseAccum > 0.05) {
+            state.phaseAccum = 0;
+            updateGaitPhase($('gait-cycle-analysis'), ph);
+        }
+    } else {
+        $('figure-caption').textContent = captionFor(state.motionType);
     }
 }
 
-function populatePatientDropdown() {
-    const patients = state.dataLoader.getPatients();
-    const select = document.getElementById('patient-select');
-
-    select.innerHTML = '<option value="">Select a patient...</option>';
-
-    patients.forEach(patno => {
-        const option = document.createElement('option');
-        option.value = patno;
-        option.textContent = `Patient ${patno}`;
-        select.appendChild(option);
-    });
-}
-
-function setupEventListeners() {
-    // Patient selection
-    document.getElementById('patient-select').addEventListener('change', (e) => {
-        const patno = parseInt(e.target.value);
-        if (patno) {
-            state.selectedPatient = patno;
-            state.currentPatientData = state.dataLoader.getPatientData(patno);
-        } else {
-            state.selectedPatient = null;
-            state.currentPatientData = state.dataLoader.getAveragePatientData();
-        }
-        updateAllVisualizations();
-    });
-
-    // Motion test type
-    document.getElementById('motion-test-select').addEventListener('change', () => {
-        updateAllVisualizations();
-    });
-
-    // Animation speed
-    const speedSlider = document.getElementById('animation-speed');
-    const speedDisplay = document.getElementById('speed-display');
-    speedSlider.addEventListener('input', (e) => {
-        state.animationState.speed = parseFloat(e.target.value);
-        speedDisplay.textContent = `${state.animationState.speed.toFixed(1)}x`;
-    });
-
-    // Animation controls
-    document.getElementById('play-button').addEventListener('click', () => {
-        state.animationState.playing = true;
-        updateAnimationStatus();
-    });
-
-    document.getElementById('pause-button').addEventListener('click', () => {
-        state.animationState.playing = false;
-        updateAnimationStatus();
-    });
-
-    document.getElementById('reset-button').addEventListener('click', () => {
-        state.animationState.timePhase = 0;
-        state.animationState.playing = true;
-        updateAnimationStatus();
-    });
-
-    // Axis selections
-    document.getElementById('x-axis-select').addEventListener('change', updateAllVisualizations);
-    document.getElementById('y-axis-select').addEventListener('change', updateAllVisualizations);
-}
-
-function updateAnimationStatus() {
-    const status = document.getElementById('animation-status');
-    status.textContent = state.animationState.playing ? 'Animation playing' : 'Animation paused';
-}
-
-function startAnimation() {
-    function animate() {
-        if (state.animationState.playing) {
-            state.animationState.timePhase = (state.animationState.timePhase + state.animationState.speed * 0.2) % (2 * Math.PI);
-            updateMotionSilhouette();
-            updateGaitCycleAnalysis();
-        }
-        state.animationFrameId = requestAnimationFrame(animate);
+function captionFor(type, ph) {
+    switch (type) {
+        case 'gait': return `Gait / walking · cycle ${(ph / (2 * Math.PI)).toFixed(2)}`;
+        case 'tug': return 'Timed Up & Go';
+        case 'balance': return 'Postural sway / balance';
+        case 'free': return 'Free / idle';
+        default: return '';
     }
-    animate();
 }
 
-function updateAllVisualizations() {
-    updateMainCorrelationPlot();
-    updateMotionSilhouette();
-    updateBilateralAsymmetryMotion();
-    updateGaitCycleAnalysis();
-    updateMotionQualityAssessment();
+// ── Controls ────────────────────────────────────────────────────────────────
+function populatePatients() {
+    const sel = $('patient-select');
+    state.loader.getPatients().forEach(p => {
+        const o = document.createElement('option');
+        o.value = p; o.textContent = `Participant ${p}`;
+        sel.appendChild(o);
+    });
 }
 
-function updateMainCorrelationPlot() {
-    const xFeature = document.getElementById('x-axis-select').value;
-    const yFeature = document.getElementById('y-axis-select').value;
-
-    const validData = state.dataLoader.getValidDataForFeatures(xFeature, yFeature);
-
-    if (validData.length === 0) {
-        Plotly.newPlot('main-correlation-plot', [], {
-            title: 'No valid data for selected features',
-            template: 'plotly_white'
-        }, plotlyConfig);
-        return;
-    }
-
-    // Group by cohort
-    const cohorts = {};
-    validData.forEach(row => {
-        const cohort = row.COHORT_NAME || 'Unknown';
-        if (!cohorts[cohort]) {
-            cohorts[cohort] = { x: [], y: [], patno: [] };
-        }
-        cohorts[cohort].x.push(row[xFeature]);
-        cohorts[cohort].y.push(row[yFeature]);
-        cohorts[cohort].patno.push(row.PATNO);
+function wireControls() {
+    $('patient-select').addEventListener('change', (e) => {
+        const v = e.target.value;
+        state.patient = v ? state.loader.getPatientData(parseInt(v, 10)) : state.loader.getAveragePatientData();
+        applyPatient();
+        drawAllCharts();
     });
 
-    const traces = Object.entries(cohorts).map(([cohort, data]) => ({
-        x: data.x,
-        y: data.y,
-        mode: 'markers',
-        type: 'scatter',
-        name: cohort,
-        marker: {
-            size: 8,
-            color: COHORT_COLORS[cohort] || '#95a5a6'
-        },
-        text: data.patno.map(p => `Patient ${p}`),
-        hovertemplate: '%{text}<br>%{xaxis.title.text}: %{x:.2f}<br>%{yaxis.title.text}: %{y:.2f}<extra></extra>'
-    }));
+    $('motion-test-select').addEventListener('change', (e) => {
+        state.motionType = e.target.value;
+        state.clock = 0;
+    });
 
-    // Add selected patient marker
-    if (state.selectedPatient && state.currentPatientData) {
-        const xVal = state.currentPatientData[xFeature];
-        const yVal = state.currentPatientData[yFeature];
+    const speed = $('animation-speed');
+    speed.addEventListener('input', (e) => {
+        state.speed = parseFloat(e.target.value);
+        $('speed-display').textContent = `${state.speed.toFixed(1)}×`;
+    });
 
-        if (xVal !== null && yVal !== null && !isNaN(xVal) && !isNaN(yVal)) {
-            traces.push({
-                x: [xVal],
-                y: [yVal],
-                mode: 'markers',
-                type: 'scatter',
-                name: `Patient ${state.selectedPatient}`,
-                marker: {
-                    size: 20,
-                    color: 'red',
-                    symbol: 'star',
-                    line: { width: 3, color: 'black' }
-                },
-                hovertemplate: `Patient ${state.selectedPatient}<br>%{xaxis.title.text}: %{x:.2f}<br>%{yaxis.title.text}: %{y:.2f}<extra></extra>`
-            });
-        }
-    }
+    $('play-button').addEventListener('click', () => setPlaying(true));
+    $('pause-button').addEventListener('click', () => setPlaying(false));
+    $('reset-button').addEventListener('click', () => { state.clock = 0; setPlaying(true); });
 
-    const layout = {
-        title: `Analysis: ${FEATURE_LABELS[yFeature]} vs. ${FEATURE_LABELS[xFeature]}`,
-        xaxis: { title: FEATURE_LABELS[xFeature] || xFeature },
-        yaxis: { title: FEATURE_LABELS[yFeature] || yFeature },
-        template: 'plotly_white',
-        hovermode: 'closest',
-        showlegend: true,
-        margin: { l: 60, r: 30, t: 50, b: 60 }
-    };
-
-    Plotly.newPlot('main-correlation-plot', traces, layout, plotlyConfig);
-}
-
-function updateMotionSilhouette() {
-    const motionTest = document.getElementById('motion-test-select').value;
-    const timePhase = state.animationState.timePhase;
-
-    const patientData = state.currentPatientData || state.dataLoader.getAveragePatientData();
-    const silhouette = state.motionGenerator.generateMotionFrame(patientData, motionTest, timePhase);
-    const bodyColors = state.motionGenerator.getBodyColors();
-
-    const traces = [];
-    for (const [partName, coords] of Object.entries(silhouette)) {
-        const closedX = [...coords.x, coords.x[0]];
-        const closedY = [...coords.y, coords.y[0]];
-
-        traces.push({
-            x: closedX,
-            y: closedY,
-            fill: 'toself',
-            fillcolor: bodyColors[partName] || '#95a5a6',
-            line: { color: 'black', width: 1 },
-            mode: 'lines',
-            type: 'scatter',
-            name: partName.replace(/_/g, ' '),
-            showlegend: false,
-            hoverinfo: 'name'
+    document.querySelectorAll('.view-presets .chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const view = btn.dataset.view;
+            state.figure && state.figure.setView(view);
+            document.querySelectorAll('.view-presets .chip').forEach(b => b.setAttribute('aria-pressed', 'false'));
+            if (view !== 'reset') btn.setAttribute('aria-pressed', 'true');
         });
-    }
-
-    const layout = {
-        title: `Motion: ${motionTest.charAt(0).toUpperCase() + motionTest.slice(1)} (Phase: ${timePhase.toFixed(2)})`,
-        xaxis: {
-            range: [-3, 3],
-            showgrid: false,
-            zeroline: false,
-            showticklabels: false,
-            scaleanchor: 'y',
-            scaleratio: 1
-        },
-        yaxis: {
-            range: [-4, 9],
-            showgrid: false,
-            zeroline: false,
-            showticklabels: false
-        },
-        plot_bgcolor: 'white',
-        paper_bgcolor: 'white',
-        margin: { l: 10, r: 10, t: 50, b: 10 },
-        height: 450
-    };
-
-    Plotly.react('motion-silhouette-plot', traces, layout, plotlyConfig);
-
-    // Update metrics display
-    updateMotionMetrics(patientData, motionTest);
-}
-
-function updateMotionMetrics(patientData, motionTest) {
-    const metricsDiv = document.getElementById('motion-metrics-display');
-
-    if (!patientData || Object.keys(patientData).length === 0) {
-        metricsDiv.innerHTML = '<p style="color: #7f8c8d; font-style: italic;">No patient selected</p>';
-        return;
-    }
-
-    let html = '';
-
-    // Speed metric
-    const speed = patientData.SP_U;
-    if (speed !== null && speed !== undefined && !isNaN(speed)) {
-        const speedClass = speed < 0.8 ? 'alert' : speed > 1.2 ? 'good' : 'warning';
-        html += `<div class="metric-item">
-            <span class="metric-label">Speed:</span>
-            <span class="metric-value ${speedClass}">${speed.toFixed(2)} m/s</span>
-        </div>`;
-    }
-
-    // Asymmetry metric
-    const asa = patientData.ASA_U;
-    if (asa !== null && asa !== undefined && !isNaN(asa)) {
-        const asaClass = asa < 0.2 ? 'good' : asa < 0.5 ? 'warning' : 'alert';
-        html += `<div class="metric-item">
-            <span class="metric-label">Asymmetry:</span>
-            <span class="metric-value ${asaClass}">${asa.toFixed(3)}</span>
-        </div>`;
-    }
-
-    metricsDiv.innerHTML = html || '<p style="color: #f39c12; font-style: italic;">Limited motion data available</p>';
-}
-
-function updateBilateralAsymmetryMotion() {
-    const validData = state.dataLoader.getValidDataForFeatures('RA_AMP_U', 'LA_AMP_U');
-
-    if (validData.length === 0) {
-        Plotly.newPlot('bilateral-asymmetry-motion', [], {
-            title: 'Bilateral arm data not available',
-            template: 'plotly_white'
-        }, plotlyConfig);
-        return;
-    }
-
-    const cohorts = {};
-    validData.forEach(row => {
-        const cohort = row.COHORT_NAME || 'Unknown';
-        if (!cohorts[cohort]) {
-            cohorts[cohort] = { x: [], y: [] };
-        }
-        cohorts[cohort].x.push(row.RA_AMP_U);
-        cohorts[cohort].y.push(row.LA_AMP_U);
     });
 
-    const traces = Object.entries(cohorts).map(([cohort, data]) => ({
-        x: data.x,
-        y: data.y,
-        mode: 'markers',
-        type: 'scatter',
-        name: cohort,
-        marker: {
-            size: 8,
-            color: COHORT_COLORS[cohort] || '#95a5a6'
-        }
-    }));
-
-    // Add diagonal reference line
-    const maxVal = Math.max(...validData.map(r => Math.max(r.RA_AMP_U, r.LA_AMP_U)));
-    traces.push({
-        x: [0, maxVal],
-        y: [0, maxVal],
-        mode: 'lines',
-        type: 'scatter',
-        name: 'Perfect Symmetry',
-        line: { dash: 'dash', color: 'gray', width: 2 },
-        showlegend: false
-    });
-
-    // Add selected patient
-    if (state.selectedPatient && state.currentPatientData) {
-        const raAmp = state.currentPatientData.RA_AMP_U;
-        const laAmp = state.currentPatientData.LA_AMP_U;
-
-        if (raAmp !== null && laAmp !== null && !isNaN(raAmp) && !isNaN(laAmp)) {
-            traces.push({
-                x: [raAmp],
-                y: [laAmp],
-                mode: 'markers',
-                type: 'scatter',
-                name: `Patient ${state.selectedPatient}`,
-                marker: {
-                    size: 20,
-                    color: 'red',
-                    symbol: 'star',
-                    line: { width: 3, color: 'black' }
-                }
-            });
-        }
-    }
-
-    const layout = {
-        title: 'Bilateral Arm Movement Asymmetry',
-        xaxis: { title: 'Right Arm Amplitude' },
-        yaxis: { title: 'Left Arm Amplitude' },
-        template: 'plotly_white',
-        showlegend: true,
-        margin: { l: 60, r: 30, t: 50, b: 60 }
-    };
-
-    Plotly.newPlot('bilateral-asymmetry-motion', traces, layout, plotlyConfig);
+    $('x-axis-select').addEventListener('change', drawCorrelation);
+    $('y-axis-select').addEventListener('change', drawCorrelation);
 }
 
-function updateGaitCycleAnalysis() {
-    if (!state.selectedPatient || !state.currentPatientData) {
-        Plotly.newPlot('gait-cycle-analysis', [], {
-            title: 'Select a patient to see gait cycle',
-            template: 'plotly_white'
-        }, plotlyConfig);
-        return;
-    }
+function setPlaying(on) {
+    state.playing = on;
+    const pill = $('animation-status');
+    pill.textContent = on ? 'Playing' : 'Paused';
+    pill.classList.toggle('is-playing', on);
+    pill.classList.toggle('is-paused', !on);
+    $('play-button').setAttribute('aria-pressed', String(on));
+    $('pause-button').setAttribute('aria-pressed', String(!on));
+}
 
-    const leftAmp = state.currentPatientData.LA_AMP_U || 30;
-    const rightAmp = state.currentPatientData.RA_AMP_U || 30;
+// ── Participant summary + metrics + figure accent ───────────────────────────
+function applyPatient() {
+    const p = state.patient || {};
+    const isAvg = p.PATNO == null;
+    const cohort = p.COHORT_NAME || 'Unknown';
 
-    const timePoints = [];
-    const leftSwing = [];
-    const rightSwing = [];
+    const badge = $('cohort-badge');
+    badge.textContent = isAvg ? 'Cohort average' : cohort;
+    badge.style.setProperty('--badge', COHORT_COLORS[cohort] || COHORT_COLORS.Unknown);
 
-    for (let i = 0; i <= 100; i++) {
-        const t = (i / 100) * 2 * Math.PI;
-        timePoints.push(t);
-        leftSwing.push((leftAmp / 50.0) * Math.sin(t));
-        rightSwing.push((rightAmp / 50.0) * Math.sin(t + Math.PI));
-    }
+    $('patient-summary').innerHTML = summaryRows(p, isAvg);
+    $('motion-metrics-display').innerHTML = metricChips(p);
 
-    const traces = [
-        {
-            x: timePoints,
-            y: leftSwing,
-            mode: 'lines',
-            type: 'scatter',
-            name: 'Left Arm Swing',
-            line: { color: '#e74c3c', width: 3 }
-        },
-        {
-            x: timePoints,
-            y: rightSwing,
-            mode: 'lines',
-            type: 'scatter',
-            name: 'Right Arm Swing',
-            line: { color: '#27ae60', width: 3 }
-        },
-        {
-            x: [state.animationState.timePhase, state.animationState.timePhase],
-            y: [-1, 1],
-            mode: 'lines',
-            type: 'scatter',
-            name: 'Current Phase',
-            line: { dash: 'dash', color: 'red', width: 2 }
+    // Mark the more-affected arm on the model (subtle amber tint).
+    if (state.figure) {
+        if (isAvg) state.figure.setAffected(null, 0);
+        else {
+            const a = affectedArm(p);
+            state.figure.setAffected(a.amount > 0.12 ? a.side : null, 0.25 + 0.4 * a.amount);
         }
+    }
+}
+
+function summaryRows(p, isAvg) {
+    const rows = [
+        ['Cohort', isAvg ? 'Average across cohort' : (p.COHORT_NAME || '—')],
+        ['Age', isAvg ? '—' : fmt(p.ENROLL_AGE, 0)],
+        ['Sex', isAvg ? '—' : sexLabel(p.SEX)],
+        ['Handedness', isAvg ? '—' : handedLabel(p.HANDED)],
+        ['Hoehn–Yahr stage', isAvg ? '—' : fmt(p.NHY, 0)],
+        ['UPDRS-III (motor)', fmt(p.NP3TOT ?? p.CLINICAL_MOTOR_SEVERITY, 0)],
+        ['UPDRS-II (patient)', fmt(p.NP2PTOT, 0)],
     ];
-
-    const layout = {
-        title: `Gait Cycle - Patient ${state.selectedPatient}`,
-        xaxis: { title: 'Phase (radians)' },
-        yaxis: { title: 'Amplitude' },
-        template: 'plotly_white',
-        showlegend: true,
-        margin: { l: 60, r: 30, t: 50, b: 60 }
-    };
-
-    Plotly.react('gait-cycle-analysis', traces, layout, plotlyConfig);
+    return rows.map(([k, v]) => `
+        <div class="summary-row"><span class="summary-key">${k}</span><span class="summary-val">${v}</span></div>
+    `).join('');
 }
 
-function updateMotionQualityAssessment() {
-    if (!state.selectedPatient || !state.currentPatientData) {
-        Plotly.newPlot('motion-quality-assessment', [], {
-            title: 'Select a patient to see quality assessment',
-            template: 'plotly_white'
-        }, plotlyConfig);
-        return;
-    }
+function metricChips(p) {
+    const speed = numOr(p.SP_U);
+    const asym = numOr(p.ASA_U);
+    const dtc = numOr(p.DUAL_TASK_COST);
+    const cad = numOr(p.CAD_U);
+    const tremor = (numOr(p.NP3PTRMR) || 0) + (numOr(p.NP3PTRML) || 0);
 
-    const movementQuality = Math.min((state.currentPatientData.MOVEMENT_QUALITY || 0) / 20, 1.0);
-    const coordination = state.currentPatientData.BILATERAL_COORDINATION || 0;
-    const symmetry = Math.max(0, 1 - ((state.currentPatientData.ASA_U || 2.0) / 2.0));
+    const chips = [];
+    if (speed != null) chips.push(chip('Gait speed', `${speed.toFixed(2)} m/s`,
+        speed < 0.8 ? 'alert' : speed < 1.1 ? 'warn' : 'good'));
+    if (cad != null) chips.push(chip('Cadence', `${cad.toFixed(0)} /min`, 'neutral'));
+    if (asym != null) chips.push(chip('Arm-swing asymmetry', asym.toFixed(1),
+        asym < 10 ? 'good' : asym < 25 ? 'warn' : 'alert'));
+    if (dtc != null) chips.push(chip('Dual-task cost', `${dtc.toFixed(1)} %`,
+        dtc < 5 ? 'good' : dtc < 15 ? 'warn' : 'alert'));
+    if (p.PATNO != null) chips.push(chip('Rest/postural tremor', tremor ? tremor.toFixed(0) : '0',
+        tremor === 0 ? 'good' : tremor < 3 ? 'warn' : 'alert'));
 
-    const trace = {
-        r: [movementQuality, coordination, symmetry],
-        theta: ['Movement Quality', 'Coordination', 'Symmetry'],
-        fill: 'toself',
-        type: 'scatterpolar',
-        name: 'Patient Quality',
-        marker: { color: '#3498db' },
-        line: { color: '#2980b9', width: 2 }
-    };
-
-    const layout = {
-        title: `Motion Quality - Patient ${state.selectedPatient}`,
-        polar: {
-            radialaxis: {
-                visible: true,
-                range: [0, 1]
-            }
-        },
-        template: 'plotly_white',
-        showlegend: false,
-        margin: { l: 60, r: 60, t: 50, b: 60 }
-    };
-
-    Plotly.newPlot('motion-quality-assessment', [trace], layout, plotlyConfig);
+    return chips.join('') || '<p class="muted">No movement metrics available.</p>';
 }
 
-// Initialize when DOM is ready
+function chip(label, value, status) {
+    return `<div class="metric ${status}">
+        <span class="metric__label">${label}</span>
+        <span class="metric__value">${value}</span>
+    </div>`;
+}
+
+// ── Charts ──────────────────────────────────────────────────────────────────
+function drawAllCharts() {
+    drawCorrelation();
+    bilateralPlot($('bilateral-asymmetry-motion'),
+        state.loader.getValidDataForFeatures('RA_AMP_U', 'LA_AMP_U'), state.patient);
+    gaitCyclePlot($('gait-cycle-analysis'), state.patient, gaitPhase(state.patient, state.clock));
+    qualityRadar($('motion-quality-assessment'), state.patient);
+}
+
+function drawCorrelation() {
+    const xF = $('x-axis-select').value;
+    const yF = $('y-axis-select').value;
+    correlationPlot($('main-correlation-plot'),
+        state.loader.getValidDataForFeatures(xF, yF), xF, yF, state.patient);
+}
+
+// ── formatting helpers ──────────────────────────────────────────────────────
+function numOr(v) { return (v === null || v === undefined || isNaN(v)) ? null : Number(v); }
+function fmt(v, d = 1) { const n = numOr(v); return n == null ? '—' : n.toFixed(d); }
+function sexLabel(v) { return v === 0 || v === '0' ? 'Female' : v === 1 || v === '1' ? 'Male' : '—'; }
+function handedLabel(v) {
+    return ({ 1: 'Right', 2: 'Left', 3: 'Mixed' })[v] || '—';
+}
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
