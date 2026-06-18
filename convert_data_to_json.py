@@ -7,7 +7,7 @@ then exports to JSON for client-side JavaScript consumption
 
 import json
 import sys
-from app import ParkinsonDataLoader
+from data_pipeline import ParkinsonDataLoader
 
 print("=" * 60)
 print("Converting Parkinson's Disease Dataset to JSON")

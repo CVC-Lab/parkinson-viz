@@ -79,8 +79,11 @@ WearGait-PD dataset instead of the synthetic gait model.
 - **Deploy/repro:** `Procfile` → `gunicorn app:server` (+ `server = app.server`);
   `requirements.txt` → UTF-8; `SYNAPSE_DIR` env var; Roche `SENSOR` composites dropped from the
   Dash axes; stride-time preferred over cadence; README build claim corrected.
-- Deferred (lower priority): `convert_data_to_json.py` imports `app.py` (builds Dash at import);
-  broad `except` clauses; CDN-only Plotly/Three; clip-JSON schema validation; a11y/mobile polish.
+- **Pipeline reproducibility:** the data loader is extracted to `data_pipeline.py`, so
+  `convert_data_to_json.py` reuses it **without building the Dash app** (JSON byte-identical
+  after the refactor).
+- Still deferred (lower priority): broad `except` clauses in the loaders; CDN-only Plotly/Three;
+  clip-JSON schema validation; a11y/mobile polish.
 
 ### Pending / next
 - More WearGait coverage (HurriedPace / TandemGait, turns); review the 2 quality-flagged clips.
