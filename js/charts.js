@@ -149,6 +149,29 @@ function phaseShape(phase) {
     };
 }
 
+// ── Real measured arm-swing waveform (WearGait clip) ───────────────────────
+export function realWaveform(container, clip, phase01) {
+    const fr = clip.frames, n = fr.length, R2D = 180 / Math.PI;
+    const x = [], left = [], right = [];
+    for (let i = 0; i < n; i++) {
+        x.push(i / (n - 1));
+        left.push(fr[i].arms.l.shoulder * R2D);
+        right.push(fr[i].arms.r.shoulder * R2D);
+    }
+    const traces = [
+        { x, y: left, mode: 'lines', name: 'Left arm', line: { color: '#4a6fa5', width: 2 } },
+        { x, y: right, mode: 'lines', name: 'Right arm', line: { color: '#c2533f', width: 2 } },
+    ];
+    Plotly.react(container, traces, theme({
+        title: `Arm-swing waveform — measured (${clip.id})`,
+        xaxis: Object.assign(axis('Clip time (looped strides)'), {
+            range: [0, 1], tickvals: [0, 0.25, 0.5, 0.75, 1],
+        }),
+        yaxis: axis('Arm swing (°, scaled)'),
+        shapes: [phaseShape(phase01)],
+    }), PLOTLY_CONFIG);
+}
+
 // ── Movement-quality radar ─────────────────────────────────────────────────
 export function qualityRadar(container, patient) {
     if (!patient) return emptyPlot(container, 'Select a participant');

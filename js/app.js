@@ -6,7 +6,7 @@ import { ParkinsonDataLoader, FEATURE_LABELS, COHORT_COLORS } from './data-loade
 import { Figure3D } from './figure3d.js';
 import { computePose, gaitPhase, affectedArm } from './motion.js';
 import {
-    correlationPlot, bilateralPlot, gaitCyclePlot, updateGaitPhase, qualityRadar,
+    correlationPlot, bilateralPlot, gaitCyclePlot, updateGaitPhase, qualityRadar, realWaveform,
 } from './charts.js';
 
 const state = {
@@ -55,21 +55,29 @@ async function init() {
 function onFrame(dt) {
     if (state.playing) state.clock += dt * state.speed;
 
+    const wgClip = (state.motionType === 'weargait' && state.clip) ? state.clip : null;
+    let wgIdx = 0;
     if (state.figure) {
-        if (state.motionType === 'weargait' && state.clip) {
-            const fr = state.clip.frames;
-            const idx = Math.floor(state.clock * state.clip.fps) % fr.length;
-            state.figure.applyPose(fr[idx]);
+        if (wgClip) {
+            wgIdx = Math.floor(state.clock * wgClip.fps) % wgClip.frames.length;
+            state.figure.applyPose(wgClip.frames[wgIdx]);
         } else {
             state.figure.applyPose(computePose(state.patient, state.motionType, state.clock));
         }
     }
 
-    // Caption + throttled gait-phase marker.
+    // Caption + throttled phase marker on the waveform chart.
     if (state.motionType === 'weargait') {
-        $('figure-caption').textContent = state.clip
-            ? `WearGait (real) · ${state.clip.id} · ${state.clip.asymmetryPct}% arm-swing asym`
+        $('figure-caption').textContent = wgClip
+            ? `WearGait (real) · ${wgClip.id} · ${wgClip.asymmetryPct}% arm-swing asym`
             : 'Loading real motion…';
+        if (wgClip) {
+            state.phaseAccum += dt;
+            if (state.phaseAccum > 0.05) {
+                state.phaseAccum = 0;
+                updateGaitPhase($('gait-cycle-analysis'), wgIdx / (wgClip.frames.length - 1));
+            }
+        }
     } else if (state.motionType === 'gait' || state.motionType === 'tug') {
         const ph = gaitPhase(state.patient, state.clock);
         $('figure-caption').textContent = captionFor(state.motionType, ph);
@@ -160,7 +168,7 @@ function wireControls() {
         const wg = state.motionType === 'weargait';
         $('weargait-control').style.display = wg ? '' : 'none';
         if (wg) enterWearGait();
-        else applyPatient();        // restore the PPMI participant readout
+        else { applyPatient(); drawAllCharts(); }   // restore PPMI readout + charts
     });
 
     const speed = $('animation-speed');
@@ -250,6 +258,7 @@ function applyWearGait(clip) {
     if (clip.updrs3 != null) chips.push(chip('UPDRS-III', String(clip.updrs3),
         clip.updrs3 < 20 ? 'good' : clip.updrs3 < 40 ? 'warn' : 'alert'));
     $('motion-metrics-display').innerHTML = chips.join('');
+    realWaveform($('gait-cycle-analysis'), clip, 0);   // real measured waveform, not a sine
 
     if (state.figure) {
         const aL = clip.armAmtL, aR = clip.armAmtR;
