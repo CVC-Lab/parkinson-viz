@@ -1,37 +1,44 @@
 /**
  * data-loader.js — Loads the pre-processed PPMI dataset and exposes helpers.
  *
- * Adds a derived DUAL_TASK_COST (% gait-speed slowing from single- to dual-task),
- * which is a core biomarker in the source research but was unused before.
+ * Two derived quantities are added at load time:
+ *   - DUAL_TASK_COST: % gait-speed slowing single- → dual-task (core to the source research).
+ *   - SWAY_NORM:      postural-sway path normalized across the cohort (p5–p95), for the
+ *                     balance animation (raw SW_PATH_OP is ~1.7–15, not a metres-scale value).
+ *
+ * The dataset has multiple rows per participant (different visits, and ON/OFF medication
+ * states of the same visit). We collapse to ONE canonical record per participant —
+ * prefer a row with a motor exam, latest visit, OFF state — so participant selection is
+ * deterministic and the cohort scatters don't double-count people. (app.py does the same
+ * at the source; this is a defensive guard that also handles a non-deduped JSON.)
  */
 
 export class ParkinsonDataLoader {
     constructor() {
-        this.mergedData = [];
+        this.records = [];   // canonical: one row per participant
     }
 
     async loadAllDatasets() {
         const response = await fetch('data/merged_data.json');
         if (!response.ok) throw new Error(`Failed to load data: ${response.statusText}`);
-        this.mergedData = await response.json();
+        const rows = await response.json();
 
-        // Derived: dual-task gait cost = % slowing in speed under cognitive load.
-        for (const row of this.mergedData) {
-            row.DUAL_TASK_COST = dualTaskCost(row.SP_U, row.SP__DT);
-        }
-        return this.mergedData;
+        for (const r of rows) r.DUAL_TASK_COST = dualTaskCost(r.SP_U, r.SP__DT);
+        addSwayNorm(rows);
+        this.records = dedupeParticipants(rows);
+        return this.records;
     }
 
     getPatients() {
-        return [...new Set(this.mergedData.map(r => r.PATNO))].sort((a, b) => a - b);
+        return this.records.map(r => r.PATNO).sort((a, b) => a - b);
     }
 
     getPatientData(patno) {
-        return this.mergedData.find(r => r.PATNO === patno) || null;
+        return this.records.find(r => r.PATNO === patno) || null;
     }
 
     getFeatureStats(feature) {
-        const values = this.mergedData
+        const values = this.records
             .map(r => r[feature])
             .filter(v => v !== null && v !== undefined && !isNaN(v));
         if (!values.length) return null;
@@ -44,7 +51,7 @@ export class ParkinsonDataLoader {
     }
 
     getValidDataForFeatures(xFeature, yFeature) {
-        return this.mergedData.filter(r => {
+        return this.records.filter(r => {
             const x = r[xFeature], y = r[yFeature];
             return x !== null && x !== undefined && !isNaN(x) &&
                    y !== null && y !== undefined && !isNaN(y);
@@ -53,7 +60,7 @@ export class ParkinsonDataLoader {
 
     getCohortCounts() {
         const counts = {};
-        this.mergedData.forEach(r => {
+        this.records.forEach(r => {
             const c = r.COHORT_NAME || 'Unknown';
             counts[c] = (counts[c] || 0) + 1;
         });
@@ -66,7 +73,7 @@ export class ParkinsonDataLoader {
             'LA_AMP_U', 'RA_AMP_U', 'SP_U', 'SP__DT', 'CAD_U', 'ASA_U',
             'L_JERK_U', 'R_JERK_U', 'MOVEMENT_QUALITY', 'BILATERAL_COORDINATION',
             'CLINICAL_MOTOR_SEVERITY', 'NP3TOT', 'NHY', 'DUAL_TASK_COST',
-            'LA_AMP_DT', 'RA_AMP_DT', 'NP3PTRMR', 'NP3PTRML',
+            'LA_AMP_DT', 'RA_AMP_DT', 'NP3PTRMR', 'NP3PTRML', 'SWAY_NORM', 'TOTAL_JERK',
         ];
         fields.forEach(f => {
             const s = this.getFeatureStats(f);
@@ -76,10 +83,59 @@ export class ParkinsonDataLoader {
     }
 }
 
+// ── derived fields ──────────────────────────────────────────────────────────
 function dualTaskCost(spU, spDT) {
     const a = Number(spU), b = Number(spDT);
     if (!a || isNaN(a) || isNaN(b)) return null;
     return ((a - b) / a) * 100;
+}
+
+function addSwayNorm(rows) {
+    const vals = rows
+        .map(r => num(r.SW_PATH_OP))
+        .filter(v => v !== null)
+        .sort((a, b) => a - b);
+    const pct = (q) => vals[Math.max(0, Math.min(vals.length - 1, Math.round(q * (vals.length - 1))))];
+    const lo = vals.length ? pct(0.05) : 0;
+    const hi = vals.length ? Math.max(pct(0.95), lo + 1e-6) : 1;
+    for (const r of rows) {
+        const v = num(r.SW_PATH_OP) ?? num(r.SW_PATH_CL);
+        r.SWAY_NORM = v === null ? null : Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+    }
+}
+
+// ── participant de-duplication ──────────────────────────────────────────────
+function dedupeParticipants(rows) {
+    const byPatno = new Map();
+    for (const r of rows) {
+        if (!byPatno.has(r.PATNO)) byPatno.set(r.PATNO, []);
+        byPatno.get(r.PATNO).push(r);
+    }
+    const out = [];
+    for (const group of byPatno.values()) {
+        out.push(group.reduce((best, r) => (recordKey(r) > recordKey(best) ? r : best)));
+    }
+    return out.sort((a, b) => a.PATNO - b.PATNO);
+}
+
+// Comparable key: prefer [has exam, latest visit, higher score (≈ OFF state)].
+function recordKey(r) {
+    const np3 = num(r.NP3TOT);
+    return (np3 !== null ? 1e9 : 0) + eventRank(r.EVENT_ID) * 1000 + (np3 !== null ? np3 : -1);
+}
+
+function eventRank(ev) {
+    const s = String(ev ?? '').toUpperCase();
+    if (s === 'SC') return -2;
+    if (s === 'BL') return 0;
+    const m = s.match(/V0*(\d+)/);
+    if (m) return parseInt(m[1], 10);
+    const m2 = s.match(/(\d+)/);
+    return m2 ? parseInt(m2[1], 10) : 0.5;
+}
+
+function num(v) {
+    return (v === null || v === undefined || isNaN(v)) ? null : Number(v);
 }
 
 export const FEATURE_LABELS = {

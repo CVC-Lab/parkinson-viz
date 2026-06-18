@@ -166,9 +166,9 @@ function summaryRows(p, isAvg) {
         ['Age', isAvg ? '—' : fmt(p.ENROLL_AGE, 0)],
         ['Sex', isAvg ? '—' : sexLabel(p.SEX)],
         ['Handedness', isAvg ? '—' : handedLabel(p.HANDED)],
-        ['Hoehn–Yahr stage', isAvg ? '—' : fmt(p.NHY, 0)],
-        ['UPDRS-III (motor)', fmt(p.NP3TOT ?? p.CLINICAL_MOTOR_SEVERITY, 0)],
-        ['UPDRS-II (patient)', fmt(p.NP2PTOT, 0)],
+        ['Hoehn–Yahr stage', isAvg ? '—' : clinical(p.NHY, 0)],
+        ['UPDRS-III (motor)', isAvg ? fmt(p.NP3TOT, 0) : clinical(p.NP3TOT, 0)],
+        ['UPDRS-II (patient)', isAvg ? fmt(p.NP2PTOT, 0) : clinical(p.NP2PTOT, 0)],
     ];
     return rows.map(([k, v]) => `
         <div class="summary-row"><span class="summary-key">${k}</span><span class="summary-val">${v}</span></div>
@@ -180,7 +180,9 @@ function metricChips(p) {
     const asym = numOr(p.ASA_U);
     const dtc = numOr(p.DUAL_TASK_COST);
     const cad = numOr(p.CAD_U);
-    const tremor = (numOr(p.NP3PTRMR) || 0) + (numOr(p.NP3PTRML) || 0);
+    const trR = numOr(p.NP3PTRMR), trL = numOr(p.NP3PTRML);
+    const hasTremorExam = trR != null || trL != null;
+    const tremor = (trR || 0) + (trL || 0);
 
     const chips = [];
     if (speed != null) chips.push(chip('Gait speed', `${speed.toFixed(2)} m/s`,
@@ -190,7 +192,7 @@ function metricChips(p) {
         asym < 10 ? 'good' : asym < 25 ? 'warn' : 'alert'));
     if (dtc != null) chips.push(chip('Dual-task cost', `${dtc.toFixed(1)} %`,
         dtc < 5 ? 'good' : dtc < 15 ? 'warn' : 'alert'));
-    if (p.PATNO != null) chips.push(chip('Rest/postural tremor', tremor ? tremor.toFixed(0) : '0',
+    if (hasTremorExam) chips.push(chip('Rest/postural tremor', tremor.toFixed(0),
         tremor === 0 ? 'good' : tremor < 3 ? 'warn' : 'alert'));
 
     return chips.join('') || '<p class="muted">No movement metrics available.</p>';
@@ -222,6 +224,7 @@ function drawCorrelation() {
 // ── formatting helpers ──────────────────────────────────────────────────────
 function numOr(v) { return (v === null || v === undefined || isNaN(v)) ? null : Number(v); }
 function fmt(v, d = 1) { const n = numOr(v); return n == null ? '—' : n.toFixed(d); }
+function clinical(v, d = 0) { return numOr(v) == null ? 'Unknown' : fmt(v, d); }
 function sexLabel(v) { return v === 0 || v === '0' ? 'Female' : v === 1 || v === '1' ? 'Male' : '—'; }
 function handedLabel(v) {
     return ({ 1: 'Right', 2: 'Left', 3: 'Mixed' })[v] || '—';

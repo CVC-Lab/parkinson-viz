@@ -1,13 +1,16 @@
 # Multi-Modal Parkinson's Disease Motion Visualization System
 
-A real-time interactive platform for visualizing Parkinson's disease motor symptoms through anatomically-accurate motion silhouettes and multi-modal data analysis.
+A real-time interactive platform for visualizing Parkinson's disease motor symptoms through an articulated **3D motion model** and multi-modal data analysis.
 
 
 ## Live Demo
 
-**Web Application**: [https://parkinson-viz.onrender.com/](https://parkinson-viz.onrender.com/)
+**Web Application**: [https://cvc-lab.github.io/parkinson-viz/](https://cvc-lab.github.io/parkinson-viz/)
 
-**Performance Note**: The cloud deployment has animation limitations due to browser ↔ server latency. For optimal 60fps real-time motion visualization, **local deployment is recommended**.
+The live app is a **static, client-side** build (no backend): a Three.js 3D figure plus
+Plotly.js charts, hosted on GitHub Pages from the `github-pages` branch. The original
+Python/**Dash** version (`app.py`) is kept as a server-rendered alternative, and its data
+pipeline also produces the JSON the static app consumes (via `convert_data_to_json.py`).
 
 ## System Overview
 
@@ -21,7 +24,7 @@ This system transforms clinical Parkinson's disease data into intuitive, real-ti
 
 ### Key Features
 
-**Anatomically-Accurate Silhouettes**: 8-head proportional human figures with proper joint articulation  
+**Articulated 3D Model**: Forward-kinematics human figure (orbit / zoom / camera presets) whose joints move with the patient's data  
 **Patient-Specific Animation**: Motion patterns derived from individual gait measurements  
 **Multi-Modal Analysis**: Gait data + UPDRS scores + Digital sensors + Demographics  
 **Real-Time Controls**: Play/Pause/Speed controls with phase-locked motion  
@@ -43,11 +46,11 @@ Raw Data Sources → Data Integration → Feature Engineering → Real-Time Visu
 
 ### Technical Components
 
-- **Frontend**: Dash (Python) + Plotly.js for interactive visualization
-- **Backend**: Python with Pandas, NumPy, SciPy for data processing
-- **Animation**: Custom SVG-based silhouette generator with real-time updates
-- **Data Processing**: Multi-threaded callback system for smooth animations
-- **Deployment**: Render.com cloud platform + local deployment support
+- **Live frontend (static)**: Three.js for the 3D motion model + Plotly.js for the 2D charts, vanilla ES modules — no backend
+- **3D animation**: forward-kinematics joint hierarchy driven by `requestAnimationFrame`
+- **Data pipeline**: Python (Pandas, NumPy, SciPy) in `app.py`, exported to JSON via `convert_data_to_json.py`
+- **Original app**: Dash (Python) + Plotly server-rendered version in `app.py`
+- **Deployment**: GitHub Pages (static, `github-pages` branch); the Dash app is separately deployable to a server
 
 ## Data Sources
 
@@ -190,61 +193,34 @@ Dash is running on http://127.0.0.1:8050/
 
 ## 🔧 System Architecture Deep Dive
 
-### Motion Silhouette Generation
+### 3D Motion Model
 
-The core innovation is the anatomically-accurate motion silhouette system:
+The figure (`js/figure3d.js`) is a forward-kinematics joint hierarchy
+(pelvis → spine → neck → head, shoulders → elbows → wrists, hips → knees → ankles → feet)
+built from Three.js capsule segments. Because every limb is a child group of its proximal
+joint, rotating a joint moves the whole chain and the body can never come apart — motion is
+joint *rotation*, not independent translation of polygons.
 
-```python
-class MotionSilhouetteGenerator:
-    """Anatomically-correct motion visualization"""
-    
-    def create_anatomical_silhouette(self):
-        # 8-head figure proportions with realistic body segments
-        return {
-            'head': {...},           # Proportional head structure  
-            'torso': {...},          # Central body reference
-            'left_upper_arm': {...}, # Bilateral arm segments
-            'right_upper_arm': {...},
-            'left_forearm': {...},
-            'right_forearm': {...},
-            'left_hand': {...},
-            'right_hand': {...},
-            'left_thigh': {...},     # Leg segments with joints
-            'right_thigh': {...},
-            # ... additional body parts
-        }
+### Real-Time Animation
+
+A single `requestAnimationFrame` loop advances a motion clock; `js/motion.js` maps the
+selected participant's data to a pose (a set of joint angles) each frame, and the figure
+applies it. The same clock drives the phase marker on the gait-cycle chart. OrbitControls
+provide drag-to-orbit / scroll-to-zoom plus Front / Side / ¾ / Top camera presets.
+
+### Motion From Data
+
+Motion is grounded in real PPMI columns (`js/motion.js`). For gait, arms swing opposite
+their same-side leg with amplitude from each arm's measured swing, cadence sets stride
+frequency, gait speed sets stride length, UPDRS-III / Hoehn-Yahr severity adds stoop and
+shuffle, and the tremor sub-scores add a fine hand tremor:
+
+```javascript
+const shoR = -armAmp.r * Math.sin(th) * (1 - 0.15 * severity);  // right arm
+const shoL =  armAmp.l * Math.sin(th) * (1 - 0.15 * severity);  // left arm (asymmetry visible)
 ```
 
-### Real-Time Animation System
-
-The system uses a sophisticated 4-callback architecture for smooth 60fps animation:
-
-1. **Patient Data Store** (Low Frequency): Caches patient data to avoid expensive lookups
-2. **Animation Control** (User Triggered): Manages play/pause/speed controls
-3. **Time Phase Ticker** (High Frequency - 100ms): Lightweight phase incrementation
-4. **Silhouette Renderer** (Data Driven): Main rendering engine for motion visualization
-
-### Motion Pattern Algorithms
-
-Patient-specific motion is calculated using clinical measurements:
-
-```python
-def calculate_gait_motion(left_arm_amp, right_arm_amp, gait_speed, time_phase, asymmetry):
-    # Normalize amplitudes to realistic range
-    left_swing = (left_arm_amp / 50.0) * math.sin(time_phase) * 0.5
-    right_swing = (right_arm_amp / 50.0) * math.sin(time_phase + math.pi) * 0.5
-    
-    # Apply clinical asymmetry
-    asymmetry_factor = min(asymmetry / 10.0, 0.3)
-    left_swing *= (1 + asymmetry_factor)
-    right_swing *= (1 - asymmetry_factor)
-    
-    # Synchronize leg motion
-    speed_factor = min(gait_speed, 1.5)
-    leg_phase = time_phase * speed_factor
-    left_leg_swing = math.sin(leg_phase + math.pi) * 0.3
-    right_leg_swing = math.sin(leg_phase) * 0.3
-```
+Balance uses cohort-normalized postural sway; TUG runs a sit → stand → walk → turn → sit cycle.
 
 ## Performance Considerations
 

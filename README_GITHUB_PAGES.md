@@ -59,11 +59,13 @@ parkinson-viz/
 ├── css/
 │   └── styles.css         # All styles
 ├── js/
-│   ├── app.js            # Main application logic
-│   ├── data-loader.js    # Data loading and processing
-│   └── motion-generator.js # Motion silhouette generator
+│   ├── app.js            # Orchestration (controls, animation clock, state)
+│   ├── data-loader.js    # Data loading, participant dedup, derived fields
+│   ├── figure3d.js       # Three.js 3D articulated figure + camera
+│   ├── motion.js         # Maps participant data → joint pose
+│   └── charts.js         # Plotly 2D analysis charts
 ├── data/
-│   └── merged_data.json  # Pre-processed patient data (0.48 MB)
+│   └── merged_data.json  # Pre-processed patient data (~0.22 MB)
 ├── .nojekyll             # Prevents Jekyll processing
 └── README_GITHUB_PAGES.md # This file
 ```
@@ -95,11 +97,11 @@ This script:
 
 ## Features
 
-### 1. Real-Time Motion Silhouettes
-- Anatomically accurate 8-head proportional human figures
-- 16 body parts with independent motion
+### 1. Real-Time 3D Motion Model
+- Articulated forward-kinematics figure (orbit / zoom / camera presets)
+- Joints rotate as a connected chain — the body never comes apart
 - Motion types: Gait, TUG Test, Balance, Free Motion
-- Patient-specific motion parameters
+- Patient-specific motion parameters (asymmetry, cadence, speed, severity, tremor)
 
 ### 2. Interactive Controls
 - **Patient Selection** - 86 patients from PPMI dataset
@@ -156,10 +158,10 @@ export const FEATURE_LABELS = {
 
 ### Modify Motion Parameters
 
-Edit `js/motion-generator.js`:
+Edit `js/motion.js`:
 ```javascript
-calculateGaitMotion(leftArmAmp, rightArmAmp, ...) {
-    // Adjust motion calculations
+function gaitPose(data, clock) {
+    // Adjust how participant data maps to joint angles
 }
 ```
 

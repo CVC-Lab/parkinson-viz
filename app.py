@@ -52,8 +52,8 @@ class ParkinsonDataLoader:
             updrs3 = pd.read_csv(updrs3_path)
             
             # Keep only essential columns to avoid memory issues - Selected key clinical indicators
-            updrs3_cols = ['PATNO', 'EVENT_ID', 'INFODT', 'NP3TOT', 'NP3SPCH', 'NP3FACXP', 'NP3RIGN', 
-                          'NP3RIGRU', 'NP3RIGLU', 'NP3FTAPR', 'NP3FTAPL', 'NP3GAIT', 'NP3PSTBL', 
+            updrs3_cols = ['PATNO', 'EVENT_ID', 'INFODT', 'PDSTATE', 'NP3TOT', 'NP3SPCH', 'NP3FACXP', 'NP3RIGN',
+                          'NP3RIGRU', 'NP3RIGLU', 'NP3FTAPR', 'NP3FTAPL', 'NP3GAIT', 'NP3PSTBL',
                           'NP3BRADY', 'NP3PTRMR', 'NP3PTRML', 'NHY']
             self.data['updrs3'] = updrs3[updrs3_cols].copy()
             
@@ -153,7 +153,10 @@ class ParkinsonDataLoader:
         
         # Clean and enhance merged dataset - Comprehensive data quality improvements
         self.enhance_merged_data(merged)
-        
+
+        # Collapse to one canonical record per participant (visit / ON-OFF de-duplication)
+        self.data['merged'] = self.dedupe_participants(self.data['merged'])
+
         print(f"✓ Final merged dataset: {self.data['merged'].shape}")
         print(f"✓ Available patients: {self.data['merged']['PATNO'].nunique()}")
         print(f"✓ Available cohorts: {self.data['merged']['COHORT_DEFINITION'].value_counts().to_dict()}")
@@ -225,6 +228,38 @@ class ParkinsonDataLoader:
         )
         
         self.data['merged'] = merged
+
+    def dedupe_participants(self, df):
+        """Collapse to one canonical record per participant.
+
+        The raw merge fans out by visit and by ON/OFF medication state (PDSTATE),
+        so a participant has several rows with different UPDRS-III totals. Keep one:
+        prefer a row with a motor exam (NP3TOT present), then the latest visit, then
+        OFF state, then the higher UPDRS-III (OFF ~ unmedicated). Makes participant
+        selection deterministic and stops the cohort scatters double-counting people.
+        """
+        import re
+        if df is None or df.empty or 'PATNO' not in df.columns:
+            return df
+        df = df.copy()
+
+        def visit_rank(ev):
+            s = str(ev).upper()
+            if s == 'SC':
+                return -2
+            if s == 'BL':
+                return 0
+            m = re.search(r'(\d+)', s)
+            return int(m.group(1)) if m else 0.5
+
+        df['_has'] = df['NP3TOT'].notna().astype(int)
+        df['_vr'] = df['EVENT_ID'].map(visit_rank)
+        df['_off'] = (df['PDSTATE'].astype(str).str.upper() == 'OFF').astype(int) if 'PDSTATE' in df.columns else 0
+        df['_np3'] = df['NP3TOT'].fillna(-1)
+
+        df = df.sort_values(['PATNO', '_has', '_vr', '_off', '_np3'])
+        df = df.drop_duplicates('PATNO', keep='last')
+        return df.drop(columns=['_has', '_vr', '_off', '_np3']).reset_index(drop=True)
 
 # Enhanced Motion Silhouette Visualization System - Anatomically-accurate with proper animation
 class MotionSilhouetteGenerator:

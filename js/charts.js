@@ -154,7 +154,9 @@ export function qualityRadar(container, patient) {
     if (!patient) return emptyPlot(container, 'Select a participant');
     const movement = clamp01(num(patient.MOVEMENT_QUALITY, 0) / 20);
     const coordination = clamp01(num(patient.BILATERAL_COORDINATION, 0));
-    const symmetry = clamp01(1 - num(patient.ASA_U, 2) / 2);
+    // BILATERAL_COORDINATION is already a symmetry score in ~[0.2, 1.0] (1 = symmetric).
+    // (The old 1 - ASA_U/2 collapsed to 0 for 186/190 participants, since ASA_U > 2.)
+    const symmetry = clamp01(num(patient.BILATERAL_COORDINATION, 0.5));
     const smoothness = clamp01(1 - num(patient.TOTAL_JERK, 0.05) / 0.1);
     const speed = clamp01(num(patient.SP_U, 1) / 1.4);
 

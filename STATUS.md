@@ -35,16 +35,25 @@ independently-translated polygons that visibly fell apart during animation — h
   types, and camera views. Fixed two real bugs found that way: canvas rendered at
   2× and clipped off-screen; shoulder-abduction sign inverted (arms collapsed inward).
 
+### Data-correctness fixes (2026-06-18 review pass)
+- **[1] One record per participant.** `app.py` now de-dups the visit / ON-OFF (`PDSTATE`)
+  fan-out → one row per PATNO (exam present, latest visit, OFF state); JSON regenerated
+  (190 → 86 rows). `data-loader.js` also de-dups defensively. Stops arbitrary severity and
+  cohort-scatter double-counting.
+- **[2] Balance is patient-specific.** Sway scales with cohort-normalized `SWAY_NORM`
+  (was `path/6000`, which floored every participant to one value).
+- **[3] Missing UPDRS = "Unknown", not 0.** `motion.js` drops the 0-fill; the summary
+  shows "Unknown" and suppresses the tremor chip when there's no exam (12 participants).
+- **[4] Radar symmetry axis** uses `BILATERAL_COORDINATION` (was `1 - ASA_U/2`, which
+  collapsed to 0 for 186/190).
+- **[5] Docs refreshed** (`README.md`, `README_GITHUB_PAGES.md`).
+
 ### Pending / next
-- **Two charts to upgrade for substance** (currently weak):
-  - Gait-cycle waveform → single-task vs **dual-task** comparison (real `_U` vs `_DT`).
-  - Quality radar → real **UPDRS-III motor-domain** profile (bradykinesia, rigidity,
-    tremor, gait, postural stability).
-- **Sync `app.py`** (Dash) to the same motion model.
-- **Refresh docs**: `README.md`, `README_GITHUB_PAGES.md`, `FIXES_APPLIED.md` still
-  describe the old polygon silhouette.
-- Optional figure polish: taper the torso (chest→waist), refine hands/feet,
-  optional front-facing default cue.
+- **Two charts to upgrade for substance** (separate from the [4] bugfix):
+  gait-cycle waveform → single- vs dual-task comparison; quality radar → real
+  UPDRS-III motor-domain profile.
+- **Sync `app.py`** fully to the 3D motion model (only the data pipeline is shared today).
+- Optional figure polish: taper the torso, refine hands/feet, front-facing default cue.
 
 ## Run locally
 ```bash

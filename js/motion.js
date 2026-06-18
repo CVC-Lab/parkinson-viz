@@ -39,10 +39,11 @@ export function gaitPhase(data, clock) {
 }
 
 function severity(data) {
-    const np3 = num(data, 'NP3TOT', num(data, 'CLINICAL_MOTOR_SEVERITY', 0));
+    // Use the raw motor-exam scores only — NOT the 0-filled CLINICAL_MOTOR_SEVERITY —
+    // so a participant with no exam stays neutral instead of looking measured-normal.
+    const np3 = num(data, 'NP3TOT', 0);
     const hy = num(data, 'NHY', 0);
-    // 0 (none) .. ~1.2 (severe)
-    return clamp(np3 / 38 + hy / 12, 0, 1.25);
+    return clamp(np3 / 38 + hy / 12, 0, 1.25);      // 0 (none) .. ~1.2 (severe)
 }
 
 /** Half-amplitude (radians) of each arm's swing from its measured degrees. */
@@ -128,8 +129,10 @@ function tremor(data, clock) {
 
 // ── Postural sway / balance ────────────────────────────────────────────────
 function balancePose(data, clock) {
-    const path = num(data, 'SW_PATH_OP', num(data, 'SW_PATH_CL', 250));
-    const mag = clamp(path / 6000, 0.006, 0.05);    // metres of CoM sway
+    // Cohort-normalized sway (raw SW_PATH_OP ~1.7–15 is not a metres value, and
+    // dividing by 6000 floored every participant to the same minimum).
+    const norm = num(data, 'SWAY_NORM', 0.3);
+    const mag = 0.012 + 0.05 * clamp(norm, 0, 1);   // ~0.012–0.062 m of CoM sway
     const swayML = mag * Math.sin(clock * TAU * 0.22);
     const swayAP = mag * Math.cos(clock * TAU * 0.17);
     const trem = tremor(data, clock);
