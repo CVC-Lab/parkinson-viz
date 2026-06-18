@@ -89,6 +89,8 @@ function populatePatients() {
         o.value = p; o.textContent = `Participant ${p}`;
         sel.appendChild(o);
     });
+    const rc = $('record-count');
+    if (rc) rc.textContent = state.loader.records.length;
 }
 
 function wireControls() {

@@ -790,8 +790,8 @@ def create_motion_metrics_display(patient_data, motion_test):
     
     if 'ASA_U' in patient_data and not pd.isna(patient_data['ASA_U']):
         asa = patient_data['ASA_U']
-        if asa < 0.2: asa_color = '#27ae60'
-        elif asa < 0.5: asa_color = '#f39c12'
+        if asa < 10: asa_color = '#27ae60'
+        elif asa < 25: asa_color = '#f39c12'
         else: asa_color = '#e74c3c'
         metrics.append(html.Div([
             html.Span(f"{asa:.3f}", style={'color': asa_color, 'fontWeight': 'bold'})
@@ -885,10 +885,16 @@ def create_motion_quality_assessment(df, selected_patient):
         return fig
 
     patient_data = df[df['PATNO'] == selected_patient].iloc[0]
+    sp_u, sp_dt = patient_data.get('SP_U'), patient_data.get('SP__DT')
+    if sp_u and sp_dt and not pd.isna(sp_u) and not pd.isna(sp_dt):
+        dual_tol = max(0.0, min(1.0, 1 - ((sp_u - sp_dt) / sp_u * 100) / 30))
+    else:
+        dual_tol = 0.5
     metrics = {
         'Movement Quality': min(patient_data.get('MOVEMENT_QUALITY', 0) / 20, 1.0),
         'Coordination': patient_data.get('BILATERAL_COORDINATION', 0),
-        'Symmetry': max(0, 1 - (patient_data.get('ASA_U', 2.0) / 2.0))
+        # Distinct axis; old 'Symmetry' = 1 - ASA_U/2 collapsed to 0 (ASA_U > 2 for nearly all rows).
+        'Dual-task Tolerance': dual_tol,
     }
     
     fig.add_trace(go.Scatterpolar(

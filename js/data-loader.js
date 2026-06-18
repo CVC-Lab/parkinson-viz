@@ -118,10 +118,15 @@ function dedupeParticipants(rows) {
     return out.sort((a, b) => a.PATNO - b.PATNO);
 }
 
-// Comparable key: prefer [has exam, latest visit, higher score (≈ OFF state)].
+// Comparable key: prefer exam present > latest visit > OFF state (PDSTATE) > higher UPDRS-III.
+// Matches app.py's dedupe_participants policy (the JSON is already de-duped; this is a guard).
 function recordKey(r) {
     const np3 = num(r.NP3TOT);
-    return (np3 !== null ? 1e9 : 0) + eventRank(r.EVENT_ID) * 1000 + (np3 !== null ? np3 : -1);
+    const off = String(r.PDSTATE ?? '').toUpperCase() === 'OFF' ? 1 : 0;
+    return (np3 !== null ? 1 : 0) * 1e12
+         + eventRank(r.EVENT_ID) * 1e6
+         + off * 1e3
+         + (np3 !== null ? np3 : -1);
 }
 
 function eventRank(ev) {
