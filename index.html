@@ -52,6 +52,7 @@
                 <label for="motion-test-select">Motion test</label>
                 <select id="motion-test-select">
                     <option value="gait">Gait / Walking</option>
+                    <option value="weargait">WearGait — real motion (NLS147)</option>
                     <option value="tug">Timed Up &amp; Go (TUG)</option>
                     <option value="balance">Postural Sway / Balance</option>
                     <option value="free">Free / Idle</option>
@@ -75,6 +76,11 @@
             <div class="control control--status">
                 <label>Status</label>
                 <span id="animation-status" class="status-pill is-playing">Playing</span>
+            </div>
+
+            <div class="control" id="weargait-control" style="display:none; grid-column: 1 / -1;">
+                <label for="weargait-select">Real-motion clip (Synapse WearGait)</label>
+                <select id="weargait-select"></select>
             </div>
         </section>
 

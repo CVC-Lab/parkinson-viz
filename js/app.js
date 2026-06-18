@@ -18,6 +18,9 @@ const state = {
     playing: true,
     clock: 0,               // seconds of motion time (scaled by speed)
     phaseAccum: 0,          // throttle for gait-phase chart updates
+    clip: null,             // loaded real-motion clip (WearGait)
+    clipLoading: false,
+    manifest: null,         // available real-motion clips
 };
 
 const $ = (id) => document.getElementById(id);
@@ -53,12 +56,21 @@ function onFrame(dt) {
     if (state.playing) state.clock += dt * state.speed;
 
     if (state.figure) {
-        const pose = computePose(state.patient, state.motionType, state.clock);
-        state.figure.applyPose(pose);
+        if (state.motionType === 'weargait' && state.clip) {
+            const fr = state.clip.frames;
+            const idx = Math.floor(state.clock * state.clip.fps) % fr.length;
+            state.figure.applyPose(fr[idx]);
+        } else {
+            state.figure.applyPose(computePose(state.patient, state.motionType, state.clock));
+        }
     }
 
     // Caption + throttled gait-phase marker.
-    if (state.motionType === 'gait' || state.motionType === 'tug') {
+    if (state.motionType === 'weargait') {
+        $('figure-caption').textContent = state.clip
+            ? `WearGait (real) · ${state.clip.id} · ${state.clip.asymmetryPct}% arm-swing asym`
+            : 'Loading real motion…';
+    } else if (state.motionType === 'gait' || state.motionType === 'tug') {
         const ph = gaitPhase(state.patient, state.clock);
         $('figure-caption').textContent = captionFor(state.motionType, ph);
         state.phaseAccum += dt;
@@ -81,6 +93,47 @@ function captionFor(type, ph) {
     }
 }
 
+async function loadManifest() {
+    if (state.manifest) return;
+    const r = await fetch('data/motion_clips/index.json');
+    state.manifest = (await r.json()).clips;
+    const sel = $('weargait-select');
+    sel.innerHTML = '';
+    state.manifest.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.id;
+        o.textContent = `${c.id} — ${c.cohort} · ${c.asymmetryPct}% asym`;
+        sel.appendChild(o);
+    });
+}
+
+async function loadClip(id) {
+    state.clip = null;
+    try {
+        const r = await fetch('data/motion_clips/' + encodeURIComponent(id) + '.json');
+        if (r.ok) {
+            state.clip = await r.json();
+            applyWearGait(state.clip);
+        }
+    } catch (e) {
+        console.error('clip load failed:', e);
+    }
+}
+
+async function enterWearGait() {
+    if (state.clipLoading) return;
+    state.clipLoading = true;
+    try {
+        await loadManifest();
+        const sel = $('weargait-select');
+        const id = sel.value || (state.manifest[0] && state.manifest[0].id);
+        if (id) { sel.value = id; await loadClip(id); }
+    } catch (e) {
+        console.error('WearGait load failed:', e);
+    }
+    state.clipLoading = false;
+}
+
 // ── Controls ────────────────────────────────────────────────────────────────
 function populatePatients() {
     const sel = $('patient-select');
@@ -97,13 +150,17 @@ function wireControls() {
     $('patient-select').addEventListener('change', (e) => {
         const v = e.target.value;
         state.patient = v ? state.loader.getPatientData(parseInt(v, 10)) : state.loader.getAveragePatientData();
-        applyPatient();
+        if (state.motionType !== 'weargait') applyPatient();   // WearGait owns the readout while active
         drawAllCharts();
     });
 
     $('motion-test-select').addEventListener('change', (e) => {
         state.motionType = e.target.value;
         state.clock = 0;
+        const wg = state.motionType === 'weargait';
+        $('weargait-control').style.display = wg ? '' : 'none';
+        if (wg) enterWearGait();
+        else applyPatient();        // restore the PPMI participant readout
     });
 
     const speed = $('animation-speed');
@@ -127,6 +184,11 @@ function wireControls() {
 
     $('x-axis-select').addEventListener('change', drawCorrelation);
     $('y-axis-select').addEventListener('change', drawCorrelation);
+
+    $('weargait-select').addEventListener('change', async (e) => {
+        state.clock = 0;
+        await loadClip(e.target.value);
+    });
 }
 
 function setPlaying(on) {
@@ -159,6 +221,40 @@ function applyPatient() {
             const a = affectedArm(p);
             state.figure.setAffected(a.amount > 0.12 ? a.side : null, 0.25 + 0.4 * a.amount);
         }
+    }
+}
+
+function applyWearGait(clip) {
+    const cohortName = clip.cohort === 'PD' ? "Parkinson's Disease" : 'Healthy Control';
+    const badge = $('cohort-badge');
+    badge.textContent = `WearGait · ${clip.cohort}`;
+    badge.style.setProperty('--badge', COHORT_COLORS[cohortName] || COHORT_COLORS.Unknown);
+
+    const rows = [
+        ['Source', 'Synapse WearGait (real motion)'],
+        ['Participant', clip.id],
+        ['Cohort', cohortName],
+        ['Age', clip.age == null ? '—' : String(clip.age)],
+        ['Sex', clip.sex || '—'],
+        ['Hoehn–Yahr stage', clip.hy == null ? '—' : String(clip.hy)],
+        ['UPDRS-III (motor)', clip.updrs3 == null ? '—' : String(clip.updrs3)],
+    ];
+    $('patient-summary').innerHTML = rows.map(([k, v]) =>
+        `<div class="summary-row"><span class="summary-key">${k}</span><span class="summary-val">${v}</span></div>`).join('');
+
+    const lowQ = clip.armQuality !== 'ok';
+    const chips = [];
+    chips.push(chip(`Arm-swing asymmetry${lowQ ? ' (low signal)' : ''}`, `${clip.asymmetryPct}%`,
+        lowQ ? 'neutral' : clip.asymmetryPct < 15 ? 'good' : clip.asymmetryPct < 35 ? 'warn' : 'alert'));
+    chips.push(chip('Cadence', `${Math.round(clip.gaitHz * 120)} /min`, 'neutral'));
+    if (clip.updrs3 != null) chips.push(chip('UPDRS-III', String(clip.updrs3),
+        clip.updrs3 < 20 ? 'good' : clip.updrs3 < 40 ? 'warn' : 'alert'));
+    $('motion-metrics-display').innerHTML = chips.join('');
+
+    if (state.figure) {
+        const aL = clip.armAmtL, aR = clip.armAmtR;
+        const amt = Math.abs(aL - aR) / (aL + aR + 1e-6);
+        state.figure.setAffected(!lowQ && amt > 0.12 ? (aL < aR ? 'l' : 'r') : null, 0.25 + 0.4 * amt);
     }
 }
 

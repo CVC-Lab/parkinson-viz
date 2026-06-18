@@ -100,7 +100,10 @@ This script:
 ### 1. Real-Time 3D Motion Model
 - Articulated forward-kinematics figure (orbit / zoom / camera presets)
 - Joints rotate as a connected chain — the body never comes apart
-- Motion types: Gait, TUG Test, Balance, Free Motion
+- Motion types: Gait, TUG Test, Balance, Free Motion (synthetic, from summary metrics)
+- **WearGait mode**: plays *real measured* motion from Synapse WearGait-PD IMU recordings
+  (41 clips in `data/motion_clips/`, built by `tools/build_motion_clip.py`), each joined to
+  the participant's real MDS-UPDRS-III / Hoehn-Yahr
 - Patient-specific motion parameters (asymmetry, cadence, speed, severity, tremor)
 
 ### 2. Interactive Controls

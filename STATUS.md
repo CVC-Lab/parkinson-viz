@@ -48,7 +48,26 @@ independently-translated polygons that visibly fell apart during animation — h
   collapsed to 0 for 186/190).
 - **[5] Docs refreshed** (`README.md`, `README_GITHUB_PAGES.md`).
 
+### Real motion from wearable IMU — "WearGait" (2026-06-18)
+A new **"WearGait — real motion"** mode plays *measured* motion from the Synapse
+WearGait-PD dataset instead of the synthetic gait model.
+- `tools/build_motion_clip.py` (offline, conda env) turns a Synapse multi-IMU trial into
+  a pose-per-frame clip: arm-swing **shape/phase** from band-passed wrist orientation;
+  arm-swing **amount/asymmetry** from frame-invariant **gyro magnitude** (raw L/R Euler
+  amplitudes aren't comparable between the two watches — that earlier showed a healthy
+  control at 72% "asymmetry"; the gyro metric gives PD ~22% vs Control ~12%); legs timed
+  from the real **L/R foot contacts** with knee flexion; seamless stride loop.
+- A **sensor-quality gate** flags clips where one wrist barely moved (asymmetry uncertain).
+- Each clip is joined to the participant's real **MDS-UPDRS-III / Hoehn-Yahr / age / sex**,
+  shown in the summary card alongside the motion.
+- 41 clips (24 PD, 17 Control) in `data/motion_clips/` + `index.json`; a picker (shown only
+  in WearGait mode) selects among them. PPMI analytics are untouched.
+- Limitations: arms/feet/trunk are measured; **knees/hips/elbows are estimated** (real
+  timing, synthesized detail) — faithful, not full mocap. The exporter hard-codes the local
+  Synapse data path.
+
 ### Pending / next
+- More WearGait coverage (HurriedPace / TandemGait, turns); review the 2 quality-flagged clips.
 - **Two charts to upgrade for substance** (separate from the [4] bugfix):
   gait-cycle waveform → single- vs dual-task comparison; quality radar → real
   UPDRS-III motor-domain profile.
