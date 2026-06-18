@@ -213,6 +213,13 @@ input[type="range"] {
 .figure-caption { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 .hint { color: var(--muted); font-size: 0.78rem; }
 
+.model-tag {
+    font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    vertical-align: middle; margin-left: 6px; white-space: nowrap;
+}
+.model-tag.schematic { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, #fff); border: 1px solid color-mix(in srgb, var(--warn) 30%, #fff); }
+.model-tag.measured  { color: var(--good); background: color-mix(in srgb, var(--good) 12%, #fff); border: 1px solid color-mix(in srgb, var(--good) 30%, #fff); }
+
 .view-presets { display: flex; gap: 5px; }
 .chip {
     font-family: inherit;

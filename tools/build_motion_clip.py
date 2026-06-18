@@ -25,7 +25,10 @@ import numpy as np
 import pandas as pd
 from scipy.signal import butter, filtfilt, detrend
 
-SYN = "/Users/ryanfarell/repos-local/parkinsons-project/Gait Data/Synapse_Wear-Gait_PD"
+SYN = os.environ.get(
+    "SYNAPSE_DIR",
+    "/Users/ryanfarell/repos-local/parkinsons-project/Gait Data/Synapse_Wear-Gait_PD",
+)
 OUT_DIR = "data/motion_clips"
 TARGET_FPS = 30
 D2R = np.pi / 180

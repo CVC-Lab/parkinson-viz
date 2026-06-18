@@ -10,8 +10,16 @@ from scipy import stats
 import math
 import copy
 from dash import dcc, html, Input, Output, State, callback_context, Patch
+import re
 import warnings
 warnings.filterwarnings('ignore')
+
+
+def _normalize_event(ev):
+    """Normalize PPMI visit IDs so joins match (e.g. 'v8', 'V8' -> 'V08')."""
+    s = str(ev).strip().upper()
+    m = re.match(r'^V0*(\d+)$', s)
+    return 'V%02d' % int(m.group(1)) if m else s
 
 class ParkinsonDataLoader:
     """Enhanced data loader for multi-modal Parkinson's datasets"""
@@ -39,6 +47,7 @@ class ParkinsonDataLoader:
         try:
             gait_path = os.path.join(self.base_path, 'Motor_Assessments', 'Gait_Data___Arm_swing_06Jan2025.csv')
             self.data['gait'] = pd.read_csv(gait_path)
+            self.data['gait']['EVENT_ID'] = self.data['gait']['EVENT_ID'].map(_normalize_event)
             print(f"✓ Loaded gait data: {self.data['gait'].shape}")
         except Exception as e:
             print(f"Error loading gait data: {e}")
@@ -56,14 +65,16 @@ class ParkinsonDataLoader:
                           'NP3RIGRU', 'NP3RIGLU', 'NP3FTAPR', 'NP3FTAPL', 'NP3GAIT', 'NP3PSTBL',
                           'NP3BRADY', 'NP3PTRMR', 'NP3PTRML', 'NHY']
             self.data['updrs3'] = updrs3[updrs3_cols].copy()
-            
+            self.data['updrs3']['EVENT_ID'] = self.data['updrs3']['EVENT_ID'].map(_normalize_event)
+
             # UPDRS Part II (Patient questionnaire) - Added patient-reported outcomes
             updrs2_path = os.path.join(self.base_path, 'Motor_Assessments', 'MDS_UPDRS_Part_II__Patient_Questionnaire_06Jan2025.csv')
             updrs2 = pd.read_csv(updrs2_path)
             
             updrs2_cols = ['PATNO', 'EVENT_ID', 'INFODT', 'NP2PTOT', 'NP2SPCH', 'NP2WALK', 'NP2TURN', 'NP2TRMR']
             self.data['updrs2'] = updrs2[updrs2_cols].copy()
-            
+            self.data['updrs2']['EVENT_ID'] = self.data['updrs2']['EVENT_ID'].map(_normalize_event)
+
             print(f"✓ Loaded UPDRS III: {self.data['updrs3'].shape}")
             print(f"✓ Loaded UPDRS II: {self.data['updrs2'].shape}")
             
@@ -151,11 +162,14 @@ class ParkinsonDataLoader:
         if not self.data['sensor_summary'].empty:
             merged = merged.merge(self.data['sensor_summary'], on='PATNO', how='left')
         
+        # Keep only rows with the gait measurements the app needs, THEN collapse to one
+        # canonical record per participant (so dedupe chooses among usable rows, and
+        # cohort-relative features are computed only over the kept participants).
+        merged = merged.dropna(subset=['PATNO', 'ASA_U', 'SP_U'])
+        merged = self.dedupe_participants(merged)
+
         # Clean and enhance merged dataset - Comprehensive data quality improvements
         self.enhance_merged_data(merged)
-
-        # Collapse to one canonical record per participant (visit / ON-OFF de-duplication)
-        self.data['merged'] = self.dedupe_participants(self.data['merged'])
 
         print(f"✓ Final merged dataset: {self.data['merged'].shape}")
         print(f"✓ Available patients: {self.data['merged']['PATNO'].nunique()}")
@@ -182,14 +196,14 @@ class ParkinsonDataLoader:
         
         # Clinical severity composites - Multi-domain severity assessment
         if 'NP3TOT' in merged.columns:
-            merged['CLINICAL_MOTOR_SEVERITY'] = merged['NP3TOT'].fillna(0)
+            merged['CLINICAL_MOTOR_SEVERITY'] = merged['NP3TOT']      # keep NaN — unknown != 0
         else:
-            merged['CLINICAL_MOTOR_SEVERITY'] = 0
-        
+            merged['CLINICAL_MOTOR_SEVERITY'] = np.nan
+
         if 'NP2PTOT' in merged.columns:
-            merged['PATIENT_REPORTED_SEVERITY'] = merged['NP2PTOT'].fillna(0)
+            merged['PATIENT_REPORTED_SEVERITY'] = merged['NP2PTOT']   # keep NaN — unknown != 0
         else:
-            merged['PATIENT_REPORTED_SEVERITY'] = 0
+            merged['PATIENT_REPORTED_SEVERITY'] = np.nan
         
         # Multi-modal composite scores - Integration of sensor, clinical, and objective measures
         merged['OBJECTIVE_MOTOR_SCORE'] = (
@@ -644,6 +658,7 @@ FEATURE_LABELS = {
 
 # Initialize the Dash App
 app = dash.Dash(__name__)
+server = app.server  # WSGI entry point for gunicorn (Procfile: gunicorn app:server)
 
 # Proper animation integration with enhanced motion silhouettes
 app.layout = html.Div(style={'fontFamily': 'Arial', 'padding': '20px', 'backgroundColor': '#f8f9fa'}, children=[
@@ -695,7 +710,7 @@ app.layout = html.Div(style={'fontFamily': 'Arial', 'padding': '20px', 'backgrou
             dcc.Dropdown(
                 id='x-axis-dropdown',
                 options=[{'label': FEATURE_LABELS.get(feat, feat), 'value': feat} 
-                        for feat in ['CLINICAL_MOTOR_SEVERITY', 'OBJECTIVE_MOTOR_SCORE', 'SP_U', 'ASA_U', 'SENSOR_MEAN']],
+                        for feat in ['CLINICAL_MOTOR_SEVERITY', 'OBJECTIVE_MOTOR_SCORE', 'SP_U', 'ASA_U', 'CAD_U']],
                 value='CLINICAL_MOTOR_SEVERITY',
                 style={'marginTop': '5px'}
             )
@@ -705,7 +720,7 @@ app.layout = html.Div(style={'fontFamily': 'Arial', 'padding': '20px', 'backgrou
             dcc.Dropdown(
                 id='y-axis-dropdown',
                 options=[{'label': FEATURE_LABELS.get(feat, feat), 'value': feat} 
-                        for feat in ['MOVEMENT_QUALITY', 'OBJECTIVE_MOTOR_SCORE', 'SP_U', 'BILATERAL_COORDINATION', 'SENSOR_CLINICAL_RATIO']],
+                        for feat in ['MOVEMENT_QUALITY', 'OBJECTIVE_MOTOR_SCORE', 'SP_U', 'BILATERAL_COORDINATION', 'ARM_ASYMMETRY']],
                 value='MOVEMENT_QUALITY',
                 style={'marginTop': '5px'}
             )

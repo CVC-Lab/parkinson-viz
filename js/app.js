@@ -20,6 +20,7 @@ const state = {
     phaseAccum: 0,          // throttle for gait-phase chart updates
     clip: null,             // loaded real-motion clip (WearGait)
     clipLoading: false,
+    clipReq: 0,             // request token to ignore superseded async clip loads
     manifest: null,         // available real-motion clips
 };
 
@@ -49,6 +50,7 @@ async function init() {
     wireControls();
     applyPatient();          // summary, metrics, charts, accent
     drawAllCharts();
+    updateModeTag();
 }
 
 // ── Animation frame (driven by Figure3D's render loop) ──────────────────────
@@ -116,16 +118,17 @@ async function loadManifest() {
 }
 
 async function loadClip(id) {
-    state.clip = null;
+    const req = ++state.clipReq;
+    let data = null;
     try {
         const r = await fetch('data/motion_clips/' + encodeURIComponent(id) + '.json');
-        if (r.ok) {
-            state.clip = await r.json();
-            applyWearGait(state.clip);
-        }
+        if (r.ok) data = await r.json();
     } catch (e) {
         console.error('clip load failed:', e);
     }
+    // Ignore if a newer clip/mode selection superseded this fetch.
+    if (req !== state.clipReq || state.motionType !== 'weargait') return;
+    if (data) { state.clip = data; applyWearGait(state.clip); }
 }
 
 async function enterWearGait() {
@@ -165,6 +168,7 @@ function wireControls() {
     $('motion-test-select').addEventListener('change', (e) => {
         state.motionType = e.target.value;
         state.clock = 0;
+        updateModeTag();
         const wg = state.motionType === 'weargait';
         $('weargait-control').style.display = wg ? '' : 'none';
         if (wg) enterWearGait();
@@ -197,6 +201,18 @@ function wireControls() {
         state.clock = 0;
         await loadClip(e.target.value);
     });
+}
+
+function updateModeTag() {
+    const tag = $('model-mode-tag');
+    if (!tag) return;
+    if (state.motionType === 'weargait') {
+        tag.textContent = 'Measured · Synapse WearGait';
+        tag.className = 'model-tag measured';
+    } else {
+        tag.textContent = 'Schematic · modeled from PPMI metrics';
+        tag.className = 'model-tag schematic';
+    }
 }
 
 function setPlaying(on) {

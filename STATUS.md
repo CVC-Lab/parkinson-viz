@@ -63,8 +63,24 @@ WearGait-PD dataset instead of the synthetic gait model.
 - 41 clips (24 PD, 17 Control) in `data/motion_clips/` + `index.json`; a picker (shown only
   in WearGait mode) selects among them. PPMI analytics are untouched.
 - Limitations: arms/feet/trunk are measured; **knees/hips/elbows are estimated** (real
-  timing, synthesized detail) — faithful, not full mocap. The exporter hard-codes the local
-  Synapse data path.
+  timing, synthesized detail) — faithful, not full mocap. The exporter's Synapse data path
+  is set via the `SYNAPSE_DIR` env var (with a local default).
+
+### Review pass 2 fixes (2026-06-18)
+- **EVENT_ID normalization + no 0-fill severity** (`app.py`): visit IDs are normalized
+  (`v8`/`V8` → `V08`) before the UPDRS join, recovering 25 clinical rows; missing severity is
+  kept null (not 0). De-dup now runs *before* feature engineering. JSON regenerated: 86
+  participants, 79 with real UPDRS-III (was 74); the scatter no longer plots unknowns at 0.
+- **Radar Movement axis** (`charts.js`): `MOVEMENT_QUALITY` mapped from its real ~0.6–1.6
+  range (was ÷20, which pinned it near zero for everyone).
+- **Schematic vs measured labels** (`index.html`/`app.js`): a tag marks the figure
+  "Schematic · PPMI metrics" vs "Measured · Synapse WearGait"; subtitle clarifies the two sources.
+- **WearGait async guard** (`app.js`): a request token ignores superseded clip fetches.
+- **Deploy/repro:** `Procfile` → `gunicorn app:server` (+ `server = app.server`);
+  `requirements.txt` → UTF-8; `SYNAPSE_DIR` env var; Roche `SENSOR` composites dropped from the
+  Dash axes; stride-time preferred over cadence; README build claim corrected.
+- Deferred (lower priority): `convert_data_to_json.py` imports `app.py` (builds Dash at import);
+  broad `except` clauses; CDN-only Plotly/Three; clip-JSON schema validation; a11y/mobile polish.
 
 ### Pending / next
 - More WearGait coverage (HurriedPace / TandemGait, turns); review the 2 quality-flagged clips.

@@ -82,11 +82,12 @@ parkinson-viz/
 
 ## Data Conversion
 
-The Python data processing pipeline is preserved and runs during build:
+GitHub Pages serves the branch as-is — there is **no build step**. The committed
+`data/merged_data.json` is regenerated **manually** from the CSV sources when they change
+(needs a Python env with pandas/scipy/openpyxl):
 
 ```bash
-# Re-generate JSON data from CSV sources
-/Users/ryanfarell/miniconda3/envs/dev/bin/python convert_data_to_json.py
+python convert_data_to_json.py
 ```
 
 This script:

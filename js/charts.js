@@ -175,7 +175,9 @@ export function realWaveform(container, clip, phase01) {
 // ── Movement-quality radar ─────────────────────────────────────────────────
 export function qualityRadar(container, patient) {
     if (!patient) return emptyPlot(container, 'Select a participant');
-    const movement = clamp01(num(patient.MOVEMENT_QUALITY, 0) / 20);
+    // MOVEMENT_QUALITY ranges ~0.6–1.6 in this cohort; map that to [0,1] (the old ÷20
+    // pinned the Movement axis near zero for everyone).
+    const movement = clamp01((num(patient.MOVEMENT_QUALITY, 1) - 0.6) / 1.0);
     const coordination = clamp01(num(patient.BILATERAL_COORDINATION, 0));
     const smoothness = clamp01(1 - num(patient.TOTAL_JERK, 0.05) / 0.1);
     const speed = clamp01(num(patient.SP_U, 1) / 1.4);
