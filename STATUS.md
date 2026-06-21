@@ -70,7 +70,7 @@ WearGait-PD dataset instead of the synthetic gait model.
 - **EVENT_ID normalization + no 0-fill severity** (`app.py`): visit IDs are normalized
   (`v8`/`V8` → `V08`) before the UPDRS join, recovering 25 clinical rows; missing severity is
   kept null (not 0). De-dup now runs *before* feature engineering. JSON regenerated: 86
-  participants, 79 with real UPDRS-III (was 74); the scatter no longer plots unknowns at 0.
+  participants, 78 with real UPDRS-III (was 74); the scatter no longer plots unknowns at 0.
 - **Radar Movement axis** (`charts.js`): `MOVEMENT_QUALITY` mapped from its real ~0.6–1.6
   range (was ÷20, which pinned it near zero for everyone).
 - **Schematic vs measured labels** (`index.html`/`app.js`): a tag marks the figure
@@ -101,6 +101,27 @@ WearGait-PD dataset instead of the synthetic gait model.
   README privacy/cohort/clinical claims corrected; added `CITATION.cff` + `DATA_USE.md`.
 - Deferred: per-field availability flags (#5, 1–3 participants), a code `LICENSE` (org decision),
   `app.py` Dash-UI parity, the unused `SEVERITY_CATEGORY` legacy column.
+
+### Full-app review fixes (2026-06-21, 53-agent review; 0 high/critical found)
+- **WearGait integrity:** figure no longer shows synthetic gait under the IMU tag while a clip
+  loads or if a fetch fails (`computePose` has a `weargait`→idle case; mode tag now cycles
+  Loading→IMU-derived / "IMU clip unavailable"). Entering WearGait or changing the PPMI
+  participant no longer leaves that participant highlighted on the cohort charts (`selected=null`).
+- **Tremor fidelity:** tremor runs at a fixed ~5 Hz off an unscaled wall-clock (was 5 Hz ×
+  speed-slider). Chip relabeled "Postural tremor (UPDRS 3.15)" — only postural items exist.
+- **Radar:** dropped the "Movement" axis (~collinear with Speed, r≈0.92); rescaled Smoothness
+  so it no longer pins ~14% of participants at 0. Removed the weak `OBJECTIVE_MOTOR_SCORE`
+  (r=0.34) from the scatter axis options.
+- **Build pipeline:** stride frequency from the real heel-strike interval (clamped 0.4–1.4 Hz)
+  — kills the FFT harmonic lock-on that showed 209–233 steps/min for 3 control clips (now
+  106–137); `SystemExit`→`ValueError` so one bad trial skips instead of aborting the batch
+  (41→42 clips); right-leg timing validated with a contralateral fallback + `legQuality`.
+  Regenerated all 42 clips.
+- **A11y / docs:** `prefers-reduced-motion` starts paused + disables CSS transitions; READMEs
+  de-overclaim "Digital Sensor" data, fix clone/Live-Demo URLs; STATUS UPDRS-III count 79→78;
+  `FIXES_APPLIED.md` marked historical.
+- Deferred (low): 31 polish items (label units, single-frame guards, WebGL context-loss,
+  on-demand rendering, finer aria labels, schematic-title qualifier).
 
 ### Pending / next
 - More WearGait coverage (HurriedPace / TandemGait, turns); review the 2 quality-flagged clips.

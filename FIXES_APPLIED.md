@@ -1,5 +1,9 @@
 # Issues Found and Fixed
 
+> ⚠️ **Historical record — superseded by `STATUS.md`.** This file predates the 3D rewrite
+> and the 190→86 participant de-dup; its counts, file names (e.g. `motion-generator.js`),
+> and structure are stale. See `STATUS.md` for current state.
+
 ## Summary
 Reviewed and fixed **5 critical issues** that would have caused the application to fail or display incorrectly.
 

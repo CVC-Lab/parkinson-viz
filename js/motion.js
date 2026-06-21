@@ -69,7 +69,7 @@ export function affectedArm(data) {
 }
 
 // ── Gait / walking ─────────────────────────────────────────────────────────
-function gaitPose(data, clock) {
+function gaitPose(data, clock, tc) {
     const th = clock * strideFrequency(data) * TAU;
     const sev = severity(data);
     const amps = armAmps(data);
@@ -100,8 +100,9 @@ function gaitPose(data, clock) {
     const bob = 0.012 * Math.cos(2 * th) - 0.01;
     const headSteady = -stoop * 0.5;               // keep gaze forward despite stoop
 
-    // Tremor (rest/postural) superimposed on the hands.
-    const trem = tremor(data, clock);
+    // Postural hand tremor superimposed on the hands (uses wall-clock tc so its frequency
+    // does NOT track the playback-speed slider).
+    const trem = tremor(data, tc);
 
     return {
         root: { bob, turn: 0 },
@@ -120,10 +121,10 @@ function gaitPose(data, clock) {
     };
 }
 
-function tremor(data, clock) {
-    const fr = num(data, 'NP3PTRMR', 0);
+function tremor(data, tc) {
+    const fr = num(data, 'NP3PTRMR', 0);            // postural-tremor scores (UPDRS 3.15)
     const fl = num(data, 'NP3PTRML', 0);
-    const osc = Math.sin(clock * TAU * 5.0);        // ~5 Hz parkinsonian tremor
+    const osc = Math.sin((tc || 0) * TAU * 5.0);    // fixed ~5 Hz (wall-clock; speed-independent)
     return {
         r: (fr * 1.4 * D2R) * osc,
         l: (fl * 1.4 * D2R) * osc,
@@ -131,14 +132,14 @@ function tremor(data, clock) {
 }
 
 // ── Postural sway / balance ────────────────────────────────────────────────
-function balancePose(data, clock) {
+function balancePose(data, clock, tc) {
     // Cohort-normalized sway (raw SW_PATH_OP ~1.7–15 is not a metres value, and
     // dividing by 6000 floored every participant to the same minimum).
     const norm = num(data, 'SWAY_NORM', 0.3);
     const mag = 0.012 + 0.05 * clamp(norm, 0, 1);   // ~0.012–0.062 m of CoM sway
     const swayML = mag * Math.sin(clock * TAU * 0.22);
     const swayAP = mag * Math.cos(clock * TAU * 0.17);
-    const trem = tremor(data, clock);
+    const trem = tremor(data, tc);
     return {
         root: {
             sway: swayML, swayZ: swayAP,
@@ -197,7 +198,7 @@ function blendJoint(a, b, t) {
     return o;
 }
 
-function tugPose(data, clock) {
+function tugPose(data, clock, tc) {
     const dur = clamp(num(data, 'TUG1_DUR', 12), 8, 30);
     const u = (clock / dur) % 1;                    // 0..1 over one full TUG
     let pose, turn = 0;
@@ -206,15 +207,15 @@ function tugPose(data, clock) {
     } else if (u < 0.24) {
         pose = blendPose(SIT, STAND, (u - 0.12) / 0.12);
     } else if (u < 0.44) {
-        pose = gaitPose(data, clock);
+        pose = gaitPose(data, clock, tc);
     } else if (u < 0.56) {
-        pose = gaitPose(data, clock);
+        pose = gaitPose(data, clock, tc);
         turn = smooth((u - 0.44) / 0.12) * Math.PI;
     } else if (u < 0.76) {
-        pose = gaitPose(data, clock);
+        pose = gaitPose(data, clock, tc);
         turn = Math.PI;
     } else if (u < 0.88) {
-        pose = gaitPose(data, clock);
+        pose = gaitPose(data, clock, tc);
         turn = lerp(Math.PI, TAU, smooth((u - 0.76) / 0.12));
     } else {
         pose = blendPose(STAND, SIT, (u - 0.88) / 0.12);
@@ -226,8 +227,8 @@ function tugPose(data, clock) {
 }
 
 // ── Free / idle: subtle weight shift + breathing + any tremor ───────────────
-function idlePose(data, clock) {
-    const trem = tremor(data, clock);
+function idlePose(data, clock, tc) {
+    const trem = tremor(data, tc);
     const sway = 0.02 * Math.sin(clock * TAU * 0.18);
     const breathe = 0.01 * Math.sin(clock * TAU * 0.25);
     return {
@@ -245,12 +246,13 @@ function idlePose(data, clock) {
 }
 
 // ── Public entry point ─────────────────────────────────────────────────────
-export function computePose(data, motionType, clock) {
+export function computePose(data, motionType, clock, tc = clock) {
     switch (motionType) {
-        case 'balance': return balancePose(data, clock);
-        case 'tug': return tugPose(data, clock);
-        case 'free': return idlePose(data, clock);
+        case 'balance': return balancePose(data, clock, tc);
+        case 'tug': return tugPose(data, clock, tc);
+        case 'weargait':                 // clip not yet loaded / failed → neutral idle, never synthetic gait
+        case 'free': return idlePose(data, clock, tc);
         case 'gait':
-        default: return gaitPose(data, clock);
+        default: return gaitPose(data, clock, tc);
     }
 }

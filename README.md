@@ -71,6 +71,7 @@ The system uses comprehensive multi-modal datasets from Parkinson's disease rese
   - Part IV: Motor complications
 
 - **Digital Sensor Data** (108,901 measurements): High-frequency behavioral signals
+  _(present in the source PPMI data; not surfaced in the current static app)_
   - Drawing tests (spirals, lines, circles)
   - Voice analysis and finger tapping
   - Daily activity monitoring
@@ -100,7 +101,7 @@ pip install dash plotly pandas numpy scipy
 
 1. **Clone the Repository**
 ```bash
-git clone https://github.com/erickim73/parkinson-viz.git
+git clone https://github.com/CVC-Lab/parkinson-viz.git
 cd parkinson-viz
 ```
 

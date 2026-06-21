@@ -335,3 +335,12 @@ input[type="range"] {
     .metrics { grid-template-columns: 1fr; }
     .control--inline select { min-width: 0; flex: 1; }
 }
+
+/* ── Reduced motion ────────────────────────────────────────────────────── */
+/* The 3D figure also auto-pauses on load (app.js) when this is set. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+    }
+}

@@ -175,18 +175,17 @@ export function realWaveform(container, clip, phase01) {
 // ── Movement-quality radar ─────────────────────────────────────────────────
 export function qualityRadar(container, patient) {
     if (!patient) return emptyPlot(container, 'Select a participant');
-    // MOVEMENT_QUALITY ranges ~0.6–1.6 in this cohort; map that to [0,1] (the old ÷20
-    // pinned the Movement axis near zero for everyone).
-    const movement = clamp01((num(patient.MOVEMENT_QUALITY, 1) - 0.6) / 1.0);
     const coordination = clamp01(num(patient.BILATERAL_COORDINATION, 0));
-    const smoothness = clamp01(1 - num(patient.TOTAL_JERK, 0.05) / 0.1);
+    // Smoothness from total jerk; /0.5 spans the cohort (the old /0.1 pinned ~14% of
+    // participants at an indistinguishable 0).
+    const smoothness = clamp01(1 - num(patient.TOTAL_JERK, 0.05) / 0.5);
     const speed = clamp01(num(patient.SP_U, 1) / 1.4);
     // Dual-task tolerance: 1 = no slowing under cognitive load, 0 = ≥30% slower.
-    // (Replaces a 'Symmetry' axis that equaled Coordination once both used BILATERAL_COORDINATION.)
     const dualTask = clamp01(1 - num(patient.DUAL_TASK_COST, 15) / 30);
 
-    const cats = ['Movement', 'Coordination', 'Dual-task', 'Smoothness', 'Speed'];
-    const vals = [movement, coordination, dualTask, smoothness, speed];
+    // 'Movement quality' dropped — it was ~collinear with Speed (r≈0.92), so it added no axis.
+    const cats = ['Coordination', 'Dual-task', 'Smoothness', 'Speed'];
+    const vals = [coordination, dualTask, smoothness, speed];
 
     Plotly.react(container, [{
         type: 'scatterpolar', r: [...vals, vals[0]], theta: [...cats, cats[0]],

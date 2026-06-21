@@ -30,7 +30,7 @@ This is the **client-side JavaScript version** of the Multi-Modal Parkinson's Di
    - Click **Settings** → **Pages**
    - Under "Source", select branch: `github-pages`
    - Click **Save**
-   - Your site will be live at: `https://YOUR_USERNAME.github.io/parkinson-viz/`
+   - Your site will be live at: `https://cvc-lab.github.io/parkinson-viz/`
 
 ### Option 2: Run Locally
 
@@ -123,7 +123,7 @@ This script:
 ### 4. Clinical Data Integration
 - **Gait Measurements** - Speed, asymmetry, arm amplitude
 - **UPDRS Scores** - Motor exam and patient-reported
-- **Digital Sensors** - Drawing, voice, tapping tests
+- **Digital Sensors** - in the source PPMI data only; not surfaced in this app
 - **Demographics** - Age, cohort, clinical staging
 
 ## Performance
@@ -186,7 +186,7 @@ Edit `css/styles.css`:
 - ✅ WearGait clips use Synapse WearGait-PD IDs (no PPMI linkage), with age/sex/UPDRS only.
 - ✅ No direct identifiers (no names, addresses, MRNs, or full dates of birth).
 - ✅ Client-side processing (no data leaves the browser).
-- ⚠️ Public redistribution is governed by the PPMI and Synapse WearGait-PD data-use terms — see `DATA_USE.md`.
+- ⚠️ Public redistribution is governed by the PPMI and Synapse WearGait-PD data-use terms.
 
 ## Updating Data
 
@@ -272,4 +272,4 @@ For issues or questions:
 
 ---
 
-**Live Demo**: https://YOUR_USERNAME.github.io/parkinson-viz/
+**Live Demo**: https://cvc-lab.github.io/parkinson-viz/

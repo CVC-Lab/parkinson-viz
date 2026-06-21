@@ -50,14 +50,6 @@ def col(walk, name):
     return pd.to_numeric(walk[name], errors="coerce").interpolate(limit_direction="both").fillna(0).values
 
 
-def gait_freq(walk, fs):
-    x = detrend(col(walk, "L_DorsalFoot_Pitch"))
-    fr = np.fft.rfftfreq(len(x), 1 / fs)
-    P = np.abs(np.fft.rfft(x))
-    band = (fr > 0.5) & (fr < 2.0)
-    return float(fr[band][np.argmax(P[band])])
-
-
 def bandpass(x, fs, f0):
     lo, hi = max(0.4, f0 * 0.5), min(fs / 2 - 0.1, f0 * 2.5)
     b, a = butter(2, [lo, hi], btype="band", fs=fs)
@@ -167,15 +159,24 @@ def load_clinical():
 def build(path, cohort, clin):
     pid = os.path.basename(path).split("_")[0].split(" (")[0].strip()
     walk, t, fs = load_walk(path)
-    f0 = gait_freq(walk, fs)
     n = len(walk)
 
-    hsL, hsR = heel_strikes(col(walk, "L Foot Contact")), heel_strikes(col(walk, "R Foot Contact"))
+    hsL = heel_strikes(col(walk, "L Foot Contact"))
+    hsR = heel_strikes(col(walk, "R Foot Contact"))
     if len(hsL) < 4:
-        raise SystemExit("too few heel strikes")
+        raise ValueError("too few left heel strikes")   # ValueError so batch() skips, not aborts
+    # Stride frequency from the real heel-strike interval. (An FFT global-max over 0.5–2 Hz
+    # locked onto the step harmonic for a few clips → impossible cadence; clamp to physiologic.)
+    f0 = float(np.clip(fs / np.median(np.diff(hsL)), 0.4, 1.4))
     s, e = clean_window(hsL, fs)
     win = slice(s, e)
-    phiL, phiR = phase_series(hsL, n)[win], phase_series(hsR, n)[win]
+    phiL = phase_series(hsL, n)[win]
+    # Right-leg timing must cover the (left-derived) window; else fall back to contralateral.
+    hsR_in = hsR[(hsR >= s) & (hsR < e)]
+    if len(hsR_in) >= 2:
+        phiR, leg_quality = phase_series(hsR, n)[win], "ok"
+    else:
+        phiR, leg_quality = (phiL + 0.5) % 1.0, "synth-right"
 
     LEG_AMP = 0.42
     hipL, hipR = -LEG_AMP * np.cos(2 * np.pi * phiL), -LEG_AMP * np.cos(2 * np.pi * phiR)
@@ -232,7 +233,7 @@ def build(path, cohort, clin):
     meta = {
         "id": pid, "cohort": cohort, "source": "Synapse WearGait-PD (SelfPace)",
         "fps": TARGET_FPS, "durationS": round(dur, 1), "gaitHz": round(f0, 2),
-        "asymmetryPct": round(asym * 100), "armQuality": quality,
+        "asymmetryPct": round(asym * 100), "armQuality": quality, "legQuality": leg_quality,
         "armAmtL": round(amtL, 2), "armAmtR": round(amtR, 2),
         "updrs3": c.get("updrs3"), "hy": c.get("hy"), "age": c.get("age"), "sex": c.get("sex"),
     }

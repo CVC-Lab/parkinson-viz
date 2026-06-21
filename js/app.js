@@ -17,9 +17,11 @@ const state = {
     speed: 1.0,
     playing: true,
     clock: 0,               // seconds of motion time (scaled by speed)
+    wallClock: 0,           // unscaled real seconds (tremor freq must not track the speed slider)
     phaseAccum: 0,          // throttle for gait-phase chart updates
     clip: null,             // loaded real-motion clip (WearGait)
     clipLoading: false,
+    clipError: false,       // last WearGait clip fetch failed
     clipReq: 0,             // request token to ignore superseded async clip loads
     manifest: null,         // available real-motion clips
 };
@@ -51,11 +53,16 @@ async function init() {
     applyPatient();          // summary, metrics, charts, accent
     drawAllCharts();
     updateModeTag();
+
+    // Respect reduced-motion preference: start paused (the user can press Play).
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        setPlaying(false);
+    }
 }
 
 // ── Animation frame (driven by Figure3D's render loop) ──────────────────────
 function onFrame(dt) {
-    if (state.playing) state.clock += dt * state.speed;
+    if (state.playing) { state.clock += dt * state.speed; state.wallClock += dt; }
 
     const wgClip = (state.motionType === 'weargait' && state.clip) ? state.clip : null;
     let wgIdx = 0;
@@ -64,7 +71,9 @@ function onFrame(dt) {
             wgIdx = Math.floor(state.clock * wgClip.fps) % wgClip.frames.length;
             state.figure.applyPose(wgClip.frames[wgIdx]);
         } else {
-            state.figure.applyPose(computePose(state.patient, state.motionType, state.clock));
+            // No clip yet (loading/failed) or non-WearGait mode. computePose returns a
+            // neutral idle pose for 'weargait', so we never show synthetic gait under the IMU tag.
+            state.figure.applyPose(computePose(state.patient, state.motionType, state.clock, state.wallClock));
         }
     }
 
@@ -72,7 +81,7 @@ function onFrame(dt) {
     if (state.motionType === 'weargait') {
         $('figure-caption').textContent = wgClip
             ? `WearGait · ${wgClip.id} · ${wgClip.asymmetryPct}% arm-swing asym (IMU-derived)`
-            : 'Loading IMU clip…';
+            : (state.clipError ? 'IMU clip unavailable' : 'Loading IMU clip…');
         if (wgClip) {
             state.phaseAccum += dt;
             if (state.phaseAccum > 0.05) {
@@ -128,7 +137,8 @@ async function loadClip(id) {
     }
     // Ignore if a newer clip/mode selection superseded this fetch.
     if (req !== state.clipReq || state.motionType !== 'weargait') return;
-    if (data) { state.clip = data; applyWearGait(state.clip); }
+    if (data) { state.clip = data; state.clipError = false; applyWearGait(state.clip); updateModeTag(); }
+    else { state.clipError = true; updateModeTag(); }
 }
 
 async function enterWearGait() {
@@ -168,11 +178,12 @@ function wireControls() {
     $('motion-test-select').addEventListener('change', (e) => {
         state.motionType = e.target.value;
         state.clock = 0;
+        state.clipError = false;
         updateModeTag();
         const wg = state.motionType === 'weargait';
         $('weargait-control').style.display = wg ? '' : 'none';
-        if (wg) enterWearGait();
-        else { applyPatient(); drawAllCharts(); }   // restore PPMI readout + charts
+        if (wg) { drawAllCharts(); enterWearGait(); }   // drop PPMI highlight now; clip loads async
+        else { applyPatient(); drawAllCharts(); }       // restore PPMI readout + charts
     });
 
     const speed = $('animation-speed');
@@ -207,8 +218,9 @@ function updateModeTag() {
     const tag = $('model-mode-tag');
     if (!tag) return;
     if (state.motionType === 'weargait') {
-        tag.textContent = 'IMU-derived · Synapse WearGait';
-        tag.className = 'model-tag measured';
+        if (state.clip) { tag.textContent = 'IMU-derived · Synapse WearGait'; tag.className = 'model-tag measured'; }
+        else if (state.clipError) { tag.textContent = 'IMU clip unavailable'; tag.className = 'model-tag schematic'; }
+        else { tag.textContent = 'Loading IMU clip…'; tag.className = 'model-tag schematic'; }
     } else {
         tag.textContent = 'Schematic · modeled from PPMI metrics';
         tag.className = 'model-tag schematic';
@@ -275,7 +287,7 @@ function applyWearGait(clip) {
     if (clip.updrs3 != null) chips.push(chip('UPDRS-III', String(clip.updrs3),
         clip.updrs3 < 20 ? 'good' : clip.updrs3 < 40 ? 'warn' : 'alert'));
     $('motion-metrics-display').innerHTML = chips.join('');
-    realWaveform($('gait-cycle-analysis'), clip, 0);   // real measured waveform, not a sine
+    drawAllCharts();   // redraw all charts WearGait-aware (measured waveform; no PPMI highlight)
 
     if (state.figure) {
         const aL = clip.armAmtL, aR = clip.armAmtR;
@@ -317,7 +329,7 @@ function metricChips(p) {
         asym < 10 ? 'good' : asym < 25 ? 'warn' : 'alert'));
     if (dtc != null) chips.push(chip('Dual-task cost', `${dtc.toFixed(1)} %`,
         dtc < 5 ? 'good' : dtc < 15 ? 'warn' : 'alert'));
-    if (hasTremorExam) chips.push(chip('Rest/postural tremor', tremor.toFixed(0),
+    if (hasTremorExam) chips.push(chip('Postural tremor (UPDRS 3.15)', tremor.toFixed(0),
         tremor === 0 ? 'good' : tremor < 3 ? 'warn' : 'alert'));
 
     return chips.join('') || '<p class="muted">No movement metrics available.</p>';
@@ -332,22 +344,25 @@ function chip(label, value, status) {
 
 // ── Charts ──────────────────────────────────────────────────────────────────
 function drawAllCharts() {
+    const wg = state.motionType === 'weargait';
+    const sel = wg ? null : state.patient;   // don't tie a PPMI participant to a WearGait clip
     drawCorrelation();
     bilateralPlot($('bilateral-asymmetry-motion'),
-        state.loader.getValidDataForFeatures('RA_AMP_U', 'LA_AMP_U'), state.patient);
-    if (state.motionType === 'weargait' && state.clip) {
-        realWaveform($('gait-cycle-analysis'), state.clip, 0);   // keep the measured WearGait waveform
+        state.loader.getValidDataForFeatures('RA_AMP_U', 'LA_AMP_U'), sel);
+    if (wg && state.clip) {
+        realWaveform($('gait-cycle-analysis'), state.clip, 0);   // measured WearGait waveform
     } else {
         gaitCyclePlot($('gait-cycle-analysis'), state.patient, gaitPhase(state.patient, state.clock));
     }
-    qualityRadar($('motion-quality-assessment'), state.patient);
+    qualityRadar($('motion-quality-assessment'), sel);   // radar has no WearGait analogue → empty there
 }
 
 function drawCorrelation() {
     const xF = $('x-axis-select').value;
     const yF = $('y-axis-select').value;
+    const sel = state.motionType === 'weargait' ? null : state.patient;
     correlationPlot($('main-correlation-plot'),
-        state.loader.getValidDataForFeatures(xF, yF), xF, yF, state.patient);
+        state.loader.getValidDataForFeatures(xF, yF), xF, yF, sel);
 }
 
 // ── formatting helpers ──────────────────────────────────────────────────────

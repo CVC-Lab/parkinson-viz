@@ -160,7 +160,6 @@ export const FEATURE_LABELS = {
     AGE_ADJUSTED_SEVERITY: 'Age-adjusted motor severity',
     OBJECTIVE_MOTOR_SCORE: 'Objective motor index (exploratory)',
     DUAL_TASK_COST: 'Dual-task gait cost (%)',
-    SENSOR_MEAN: 'Digital sensor response (mean)',
 };
 
 // Muted, accessible categorical palette — restrained, not "rainbow".
