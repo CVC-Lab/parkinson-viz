@@ -14,6 +14,19 @@ def _normalize_event(ev):
     m = re.match(r'^V0*(\d+)$', s)
     return 'V%02d' % int(m.group(1)) if m else s
 
+
+_MONTHS = {m: i for i, m in enumerate(
+    ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'], start=1)}
+
+
+def _month_ordinal(s):
+    """Parse a PPMI 'Mon-YY' date to a year*12+month ordinal, or None."""
+    m = re.match(r'^([A-Za-z]{3})-(\d{2})$', str(s).strip())
+    if not m or m.group(1).upper() not in _MONTHS:
+        return None
+    return (2000 + int(m.group(2))) * 12 + _MONTHS[m.group(1).upper()]
+
+
 class ParkinsonDataLoader:
     """Enhanced data loader for multi-modal Parkinson's datasets"""
     def __init__(self, base_path='.'):
@@ -140,7 +153,21 @@ class ParkinsonDataLoader:
         # Add UPDRS scores - Integrated clinical severity assessments
         if not self.data['updrs3'].empty:
             merged = merged.merge(self.data['updrs3'], on=['PATNO', 'EVENT_ID'], how='left', suffixes=('', '_updrs3'))
-        
+            # Date-tolerance guard: a same-EVENT_ID join can still pair a gait visit with a
+            # UPDRS exam years apart (PPMI reused some visit labels). If the gait date and the
+            # UPDRS date differ by > 6 months, drop the UPDRS-III values for that row.
+            if 'INFODT' in merged.columns and 'INFODT_updrs3' in merged.columns:
+                g = merged['INFODT'].map(_month_ordinal)
+                u = merged['INFODT_updrs3'].map(_month_ordinal)
+                mismatch = g.notna() & u.notna() & ((g - u).abs() > 6)
+                u3_cols = [c if c != 'INFODT' else 'INFODT_updrs3'
+                           for c in self.data['updrs3'].columns if c not in ('PATNO', 'EVENT_ID')]
+                for c in u3_cols:
+                    if c in merged.columns:
+                        merged.loc[mismatch, c] = np.nan
+                if mismatch.any():
+                    print(f"  ⚠ nulled {int(mismatch.sum())} UPDRS-III join(s) with >6mo gait/exam date gap")
+
         if not self.data['updrs2'].empty:
             merged = merged.merge(self.data['updrs2'], on=['PATNO', 'EVENT_ID'], how='left', suffixes=('', '_updrs2'))
         

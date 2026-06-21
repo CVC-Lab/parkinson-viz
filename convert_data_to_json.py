@@ -33,6 +33,19 @@ for record in data_dict:
             if math.isnan(value) or math.isinf(value):
                 record[key] = None
 
+# Minimize the public export: drop quasi-identifiers the static app never renders
+# (privacy) and the dimensionally-incoherent cross-test Roche SENSOR composites.
+DROP_FIELDS = {
+    'BIRTHDT', 'INFODT', 'INFODT_updrs2', 'INFODT_updrs3',
+    'HISPLAT', 'RAWHITE', 'RABLACK', 'RAASIAN', 'ENROLL_STATUS',
+    'COHORT', 'COHORT_x', 'COHORT_y', 'COHORT_DEFINITION',
+    'SENSOR_MEAN', 'SENSOR_STD', 'SENSOR_COUNT', 'SENSOR_AGE', 'SENSOR_CLINICAL_RATIO',
+    'SEVERITY_CATEGORY', 'SPEED_CATEGORY', 'AGE_ADJUSTED_SEVERITY',
+}
+for record in data_dict:
+    for k in DROP_FIELDS:
+        record.pop(k, None)
+
 # Write to JSON file
 output_path = 'data/merged_data.json'
 with open(output_path, 'w') as f:

@@ -180,10 +180,13 @@ Edit `css/styles.css`:
 
 ## Data Privacy
 
-- ✅ All data is de-identified (PATNO IDs only)
-- ✅ Data from public PPMI dataset
-- ✅ No PHI or sensitive information
-- ✅ Client-side processing (no data leaves browser)
+- ✅ De-identified PPMI data: PATNO + sex, handedness, enrollment age, and clinical
+  scores (UPDRS, Hoehn–Yahr). Birth dates, race/ethnicity, visit dates, and enrollment
+  status are **not** exported (`convert_data_to_json.py` drops them).
+- ✅ WearGait clips use Synapse WearGait-PD IDs (no PPMI linkage), with age/sex/UPDRS only.
+- ✅ No direct identifiers (no names, addresses, MRNs, or full dates of birth).
+- ✅ Client-side processing (no data leaves the browser).
+- ⚠️ Public redistribution is governed by the PPMI and Synapse WearGait-PD data-use terms — see `DATA_USE.md`.
 
 ## Updating Data
 

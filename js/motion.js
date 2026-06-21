@@ -29,10 +29,11 @@ function num(data, key, dflt) {
 
 // ── Derived gait parameters ────────────────────────────────────────────────
 export function strideFrequency(data) {
-    const strideT = num(data, 'STR_T_U', 0);      // measured stride time (s) — preferred
+    const cad = num(data, 'CAD_U', 0);            // cadence (steps/min) — primary, most robust
+    if (cad > 0) return clamp(cad / 120, 0.45, 1.2);   // strides per second
+    const strideT = num(data, 'STR_T_U', 0);      // fallback: measured stride time (s)
     if (strideT > 0.3) return clamp(1 / strideT, 0.45, 1.2);
-    const cad = num(data, 'CAD_U', 100);          // fallback: cadence (steps/min)
-    return clamp(cad / 120, 0.45, 1.2);           // strides per second
+    return 0.8;
 }
 
 /** Current gait-cycle phase in [0, 2π) for a given clock (seconds). */

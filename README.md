@@ -80,10 +80,9 @@ The system uses comprehensive multi-modal datasets from Parkinson's disease rese
   - Cohort definitions and enrollment status
 
 #### **Patient Populations**
-- **PD Patients**: Primary Parkinson's disease cohort
-- **Healthy Controls**: Neurologically normal comparison group
-- **Prodromal**: Early-stage/at-risk individuals
-- **SWEDD**: Subjects Without Evidence of Dopaminergic Deficit
+The PPMI study spans PD, Healthy Control, Prodromal, and SWEDD cohorts. The data
+**currently shipped in this app** contains only **Parkinson's Disease (49)** and
+**Prodromal (37)** participants.
 
 ## Local Installation & Setup
 
@@ -264,11 +263,13 @@ def enhance_merged_data(self, merged):
 - **Disease Progression Tracking**: Longitudinal movement changes
 - **Cohort Comparison Studies**: Control vs. patient populations
 
-### Clinical Decision Support
-- **Objective Assessment**: Transform clinical scores into visual patterns
-- **Patient Education**: Help patients understand their movement patterns
-- **Therapy Planning**: Identify specific movement impairments
-- **Progress Monitoring**: Track improvement over time
+### Research & Education (not for clinical use)
+This is a research and educational visualization, **not a clinical decision-support
+tool or a medical device** — it is not validated for diagnosis, treatment planning, or
+patient care.
+- **Objective patterns**: visualize clinical scores and movement metrics
+- **Education**: illustrate Parkinsonian movement patterns
+- **Research**: explore cohort patterns and biomarkers
 
 ### Educational Use
 - **Medical Training**: Visualize Parkinson's motor symptoms

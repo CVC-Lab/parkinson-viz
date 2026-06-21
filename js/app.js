@@ -71,8 +71,8 @@ function onFrame(dt) {
     // Caption + throttled phase marker on the waveform chart.
     if (state.motionType === 'weargait') {
         $('figure-caption').textContent = wgClip
-            ? `WearGait (real) · ${wgClip.id} · ${wgClip.asymmetryPct}% arm-swing asym`
-            : 'Loading real motion…';
+            ? `WearGait · ${wgClip.id} · ${wgClip.asymmetryPct}% arm-swing asym (IMU-derived)`
+            : 'Loading IMU clip…';
         if (wgClip) {
             state.phaseAccum += dt;
             if (state.phaseAccum > 0.05) {
@@ -207,7 +207,7 @@ function updateModeTag() {
     const tag = $('model-mode-tag');
     if (!tag) return;
     if (state.motionType === 'weargait') {
-        tag.textContent = 'Measured · Synapse WearGait';
+        tag.textContent = 'IMU-derived · Synapse WearGait';
         tag.className = 'model-tag measured';
     } else {
         tag.textContent = 'Schematic · modeled from PPMI metrics';
@@ -255,13 +255,14 @@ function applyWearGait(clip) {
     badge.style.setProperty('--badge', COHORT_COLORS[cohortName] || COHORT_COLORS.Unknown);
 
     const rows = [
-        ['Source', 'Synapse WearGait (real motion)'],
+        ['Source', 'Synapse WearGait (IMU-derived)'],
         ['Participant', clip.id],
         ['Cohort', cohortName],
         ['Age', clip.age == null ? '—' : String(clip.age)],
         ['Sex', clip.sex || '—'],
         ['Hoehn–Yahr stage', clip.hy == null ? '—' : String(clip.hy)],
         ['UPDRS-III (motor)', clip.updrs3 == null ? '—' : String(clip.updrs3)],
+        ['Provenance', 'Gait timing &amp; arm-swing measured; knees / trunk / joint angles estimated'],
     ];
     $('patient-summary').innerHTML = rows.map(([k, v]) =>
         `<div class="summary-row"><span class="summary-key">${k}</span><span class="summary-val">${v}</span></div>`).join('');
@@ -291,6 +292,7 @@ function summaryRows(p, isAvg) {
         ['Handedness', isAvg ? '—' : handedLabel(p.HANDED)],
         ['Hoehn–Yahr stage', isAvg ? '—' : clinical(p.NHY, 0)],
         ['UPDRS-III (motor)', isAvg ? fmt(p.NP3TOT, 0) : clinical(p.NP3TOT, 0)],
+        ['Medication state', isAvg ? '—' : medState(p.PDSTATE)],
         ['UPDRS-II (patient)', isAvg ? fmt(p.NP2PTOT, 0) : clinical(p.NP2PTOT, 0)],
     ];
     return rows.map(([k, v]) => `
@@ -333,7 +335,11 @@ function drawAllCharts() {
     drawCorrelation();
     bilateralPlot($('bilateral-asymmetry-motion'),
         state.loader.getValidDataForFeatures('RA_AMP_U', 'LA_AMP_U'), state.patient);
-    gaitCyclePlot($('gait-cycle-analysis'), state.patient, gaitPhase(state.patient, state.clock));
+    if (state.motionType === 'weargait' && state.clip) {
+        realWaveform($('gait-cycle-analysis'), state.clip, 0);   // keep the measured WearGait waveform
+    } else {
+        gaitCyclePlot($('gait-cycle-analysis'), state.patient, gaitPhase(state.patient, state.clock));
+    }
     qualityRadar($('motion-quality-assessment'), state.patient);
 }
 
@@ -351,6 +357,10 @@ function clinical(v, d = 0) { return numOr(v) == null ? 'Unknown' : fmt(v, d); }
 function sexLabel(v) { return v === 0 || v === '0' ? 'Female' : v === 1 || v === '1' ? 'Male' : '—'; }
 function handedLabel(v) {
     return ({ 1: 'Right', 2: 'Left', 3: 'Mixed' })[v] || '—';
+}
+function medState(v) {
+    const s = String(v == null ? '' : v).toUpperCase();
+    return s === 'OFF' ? 'OFF (unmedicated)' : s === 'ON' ? 'ON (medicated)' : 'Unknown';
 }
 
 if (document.readyState === 'loading') {

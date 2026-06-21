@@ -158,7 +158,7 @@ export const FEATURE_LABELS = {
     CLINICAL_MOTOR_SEVERITY: 'UPDRS-III motor score',
     PATIENT_REPORTED_SEVERITY: 'UPDRS-II patient score',
     AGE_ADJUSTED_SEVERITY: 'Age-adjusted motor severity',
-    OBJECTIVE_MOTOR_SCORE: 'Objective motor impairment',
+    OBJECTIVE_MOTOR_SCORE: 'Objective motor index (exploratory)',
     DUAL_TASK_COST: 'Dual-task gait cost (%)',
     SENSOR_MEAN: 'Digital sensor response (mean)',
 };

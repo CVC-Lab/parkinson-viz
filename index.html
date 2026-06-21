@@ -30,7 +30,8 @@
                 <h1>Parkinson's Disease — Motion &amp; Gait Visualization</h1>
                 <p class="subtitle">
                     PPMI cohort analytics with a <strong>schematic</strong> 3D gait model, plus
-                    <strong>measured</strong> 3D motion from the Synapse WearGait cohort.
+                    <strong>IMU-derived</strong> 3D motion from the Synapse WearGait cohort
+                    (gait timing &amp; arm-swing measured; other joints estimated).
                 </p>
             </div>
             <p class="provenance">
@@ -52,7 +53,7 @@
                 <label for="motion-test-select">Motion test</label>
                 <select id="motion-test-select">
                     <option value="gait">Gait / Walking</option>
-                    <option value="weargait">WearGait — real motion (NLS147)</option>
+                    <option value="weargait">WearGait — IMU-derived motion</option>
                     <option value="tug">Timed Up &amp; Go (TUG)</option>
                     <option value="balance">Postural Sway / Balance</option>
                     <option value="free">Free / Idle</option>
@@ -79,7 +80,7 @@
             </div>
 
             <div class="control" id="weargait-control" style="display:none; grid-column: 1 / -1;">
-                <label for="weargait-select">Real-motion clip (Synapse WearGait)</label>
+                <label for="weargait-select">IMU-derived clip (Synapse WearGait)</label>
                 <select id="weargait-select"></select>
             </div>
         </section>
@@ -132,7 +133,7 @@
                         <label for="x-axis-select">X</label>
                         <select id="x-axis-select">
                             <option value="CLINICAL_MOTOR_SEVERITY">UPDRS-III motor score</option>
-                            <option value="OBJECTIVE_MOTOR_SCORE">Objective motor impairment</option>
+                            <option value="OBJECTIVE_MOTOR_SCORE">Objective motor index (exploratory)</option>
                             <option value="SP_U">Gait speed (m/s)</option>
                             <option value="ASA_U">Arm-swing asymmetry</option>
                             <option value="CAD_U">Cadence (steps/min)</option>
@@ -142,7 +143,7 @@
                         <label for="y-axis-select">Y</label>
                         <select id="y-axis-select">
                             <option value="MOVEMENT_QUALITY">Movement quality index</option>
-                            <option value="OBJECTIVE_MOTOR_SCORE">Objective motor impairment</option>
+                            <option value="OBJECTIVE_MOTOR_SCORE">Objective motor index (exploratory)</option>
                             <option value="SP_U">Gait speed (m/s)</option>
                             <option value="BILATERAL_COORDINATION">Bilateral coordination</option>
                             <option value="DUAL_TASK_COST">Dual-task gait cost (%)</option>

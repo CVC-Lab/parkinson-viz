@@ -85,6 +85,23 @@ WearGait-PD dataset instead of the synthetic gait model.
 - Still deferred (lower priority): broad `except` clauses in the loaders; CDN-only Plotly/Three;
   clip-JSON schema validation; a11y/mobile polish.
 
+### Debate-pass fixes (2026-06-19, multi-agent review)
+- **#9 (was the worst live bug):** `drawAllCharts()` is now mode-aware — changing the PPMI
+  participant in WearGait mode no longer repaints the synthetic sine over the measured waveform.
+- **#7 honesty:** WearGait labels softened to "IMU-derived" (timing + arm-swing measured;
+  knees/trunk/joints estimated) — subtitle, mode tag, option, source row, figure caption, + a
+  "Provenance" summary row.
+- **#3 disclosure:** participant card shows **Medication state (ON/OFF/Unknown)** next to UPDRS-III.
+- **#6:** `strideFrequency` uses cadence as primary (stride-time only as fallback).
+- **#8:** "Objective motor impairment" → "Objective motor index (exploratory)".
+- **#2:** date-tolerance guard in the pipeline nulls UPDRS joins with a >6-month gait/exam gap
+  (fixes PATNO 40611's 4.3-yr-stale exam).
+- **#1 / #4 privacy + export hygiene:** `convert_data_to_json.py` drops birth dates, race flags,
+  visit dates, enrollment status, and the incoherent Roche `SENSOR_*` composites (110→90 fields);
+  README privacy/cohort/clinical claims corrected; added `CITATION.cff` + `DATA_USE.md`.
+- Deferred: per-field availability flags (#5, 1–3 participants), a code `LICENSE` (org decision),
+  `app.py` Dash-UI parity, the unused `SEVERITY_CATEGORY` legacy column.
+
 ### Pending / next
 - More WearGait coverage (HurriedPace / TandemGait, turns); review the 2 quality-flagged clips.
 - **Two charts to upgrade for substance** (separate from the [4] bugfix):
