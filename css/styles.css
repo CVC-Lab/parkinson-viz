@@ -295,6 +295,7 @@ input[type="range"] {
 }
 .section-head h2 { font-size: 1.1rem; font-weight: 650; color: var(--ink); }
 .axis-controls { display: flex; gap: 14px; }
+.control-hint { display: block; margin-top: 5px; font-size: 0.72rem; color: var(--muted); }
 .control--inline { flex-direction: row; align-items: center; gap: 7px; }
 .control--inline > label { text-transform: none; letter-spacing: 0; font-size: 0.8rem; }
 .control--inline select { width: auto; min-width: 190px; padding-top: 6px; padding-bottom: 6px; }
