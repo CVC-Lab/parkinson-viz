@@ -337,6 +337,37 @@ input[type="range"] {
     .control--inline select { min-width: 0; flex: 1; }
 }
 
+/* ── Header meta + ghost button ────────────────────────────────────────── */
+.site-header__meta { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; flex-shrink: 0; }
+.btn--ghost { display: inline-flex; align-items: center; gap: 7px; font-size: 0.85rem; }
+.btn--ghost svg { color: var(--accent); }
+
+/* ── Info overlay (modal) ──────────────────────────────────────────────── */
+.overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.overlay[hidden] { display: none; }
+.overlay__backdrop { position: absolute; inset: 0; background: rgba(20, 24, 31, 0.32); backdrop-filter: blur(2px); }
+.overlay__dialog {
+    position: relative; width: min(680px, 100%); max-height: 86vh; display: flex; flex-direction: column;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: 0 12px 40px rgba(20, 24, 31, .22); animation: overlay-in .16s ease-out;
+}
+@keyframes overlay-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.overlay__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; border-bottom: 1px solid var(--line); }
+.overlay__head h2 { font-size: 1.15rem; font-weight: 650; color: var(--ink); }
+.overlay__close { font-size: 1.5rem; line-height: 1; color: var(--muted); background: none; border: none; cursor: pointer; padding: 2px 8px; border-radius: var(--radius-sm); }
+.overlay__close:hover { color: var(--ink); background: var(--accent-weak); }
+.overlay__body { padding: 18px 22px 22px; overflow-y: auto; color: var(--text); font-size: 0.92rem; line-height: 1.55; }
+.overlay__lead { margin-bottom: 4px; }
+.info-block { margin-top: 18px; }
+.info-block h3 { font-size: 0.8rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px; }
+.info-block ul { margin: 0; padding-left: 18px; }
+.info-block li { margin: 4px 0; }
+.info-block p { margin: 6px 0; }
+.info-tag { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 1px 7px; border-radius: 999px; margin-right: 4px; }
+.info-tag--amber { background: #fbf0dd; color: #8a5a16; }
+.info-tag--green { background: #e3f0ea; color: #2f6354; }
+.info-caveat { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.85rem; }
+
 /* ── Reduced motion ────────────────────────────────────────────────────── */
 /* The 3D figure also auto-pauses on load (app.js) when this is set. */
 @media (prefers-reduced-motion: reduce) {

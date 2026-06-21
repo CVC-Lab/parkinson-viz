@@ -34,10 +34,16 @@
                     (gait timing &amp; arm-swing measured; other joints estimated).
                 </p>
             </div>
-            <p class="provenance">
-                Data: Parkinson's Progression Markers Initiative (PPMI)
-                <span class="dot">·</span> <span id="record-count">86</span> participants (one canonical record each)
-            </p>
+            <div class="site-header__meta">
+                <button id="info-open" class="btn btn--ghost" type="button" aria-haspopup="dialog" aria-controls="info-overlay">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    How to read this
+                </button>
+                <p class="provenance">
+                    Data: Parkinson's Progression Markers Initiative (PPMI)
+                    <span class="dot">·</span> <span id="record-count">86</span> participants (one canonical record each)
+                </p>
+            </div>
         </header>
 
         <!-- ───────────────────────── Controls ───────────────────────── -->
@@ -171,6 +177,74 @@
                 3D model: Three.js · charts: Plotly.js
             </p>
         </footer>
+    </div>
+
+    <!-- ───────────────────────── Info overlay ───────────────────────── -->
+    <div id="info-overlay" class="overlay" hidden>
+        <div class="overlay__backdrop" data-close></div>
+        <div class="overlay__dialog" role="dialog" aria-modal="true" aria-labelledby="info-title">
+            <header class="overlay__head">
+                <h2 id="info-title">How to read this visualization</h2>
+                <button id="info-close" class="overlay__close" type="button" aria-label="Close">&times;</button>
+            </header>
+            <div class="overlay__body">
+                <p class="overlay__lead">An interactive look at Parkinsonian movement from two research
+                datasets. Compare gait, arm-swing and balance across participants and cohorts — and view
+                real wearable-sensor motion next to clinically-modelled motion.</p>
+
+                <section class="info-block">
+                    <h3>Two kinds of 3D motion</h3>
+                    <p><span class="info-tag info-tag--amber">Schematic</span> For <em>Gait</em>, <em>TUG</em>,
+                    <em>Balance</em> and <em>Free</em>, the figure's pose is generated from the selected PPMI
+                    participant's clinical metrics (UPDRS-III, gait speed, arm-swing amplitude, tremor). It
+                    illustrates those numbers — it is not a recording.</p>
+                    <p><span class="info-tag info-tag--green">IMU-derived</span> <em>WearGait</em> plays real
+                    motion reconstructed from body-worn inertial sensors (Synapse WearGait-PD). Gait timing and
+                    arm-swing are measured; knees, trunk and other joints are estimated. The tag in the model's
+                    corner always shows which mode you're in.</p>
+                </section>
+
+                <section class="info-block">
+                    <h3>Motion tests</h3>
+                    <ul>
+                        <li><strong>Gait / Walking</strong> — modelled steady-state walking.</li>
+                        <li><strong>WearGait</strong> — real measured walking; pick one of 42 recordings.</li>
+                        <li><strong>Timed Up &amp; Go</strong> — sit → stand → walk → turn → sit.</li>
+                        <li><strong>Postural Sway / Balance</strong> — quiet standing with body sway.</li>
+                        <li><strong>Free / Idle</strong> — neutral resting pose.</li>
+                    </ul>
+                </section>
+
+                <section class="info-block">
+                    <h3>The 3D model</h3>
+                    <ul>
+                        <li>Drag to orbit, scroll to zoom; the chips set Front / Side / Top / ¾ views.</li>
+                        <li>An <strong>amber-tinted limb</strong> marks the more-affected side (greater arm-swing asymmetry).</li>
+                        <li>Play / Pause / Reset and the Speed slider control playback.</li>
+                    </ul>
+                </section>
+
+                <section class="info-block">
+                    <h3>The charts</h3>
+                    <ul>
+                        <li><strong>Cohort scatter</strong> — any two metrics across participants; the selected one is starred.</li>
+                        <li><strong>Bilateral arm-swing</strong> — left vs right amplitude; distance from the diagonal is asymmetry.</li>
+                        <li><strong>Arm-swing waveform</strong> — arm angle over the gait cycle (schematic) or the measured WearGait clip.</li>
+                        <li><strong>Movement-quality radar</strong> — coordination, dual-task tolerance, smoothness, speed.</li>
+                    </ul>
+                </section>
+
+                <section class="info-block">
+                    <h3>What to look for</h3>
+                    <ul>
+                        <li>Reduced and <strong>asymmetric arm-swing</strong> is an early, characteristic sign of PD — compare a PD participant with a control.</li>
+                        <li>Slower gait, higher dual-task cost and higher UPDRS-III all track greater motor severity.</li>
+                    </ul>
+                </section>
+
+                <p class="info-caveat">Research and education only — not a diagnostic or clinical tool.</p>
+            </div>
+        </div>
     </div>
 
     <script type="module" src="js/app.js"></script>

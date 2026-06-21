@@ -53,6 +53,7 @@ async function init() {
     applyPatient();          // summary, metrics, charts, accent
     drawAllCharts();
     updateModeTag();
+    initInfo();
 
     // Respect reduced-motion preference: start paused (the user can press Play).
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -223,6 +224,29 @@ function wireControls() {
         state.clock = 0;
         await loadClip(e.target.value);
     });
+}
+
+function initInfo() {
+    const overlay = $('info-overlay');
+    const openBtn = $('info-open');
+    const closeBtn = $('info-close');
+    if (!overlay || !openBtn || !closeBtn) return;
+    let lastFocus = null;
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    function open() {
+        lastFocus = document.activeElement;
+        overlay.hidden = false;
+        closeBtn.focus();
+        document.addEventListener('keydown', onKey);
+    }
+    function close() {
+        overlay.hidden = true;
+        document.removeEventListener('keydown', onKey);
+        if (lastFocus && lastFocus.focus) lastFocus.focus();
+    }
+    openBtn.addEventListener('click', open);
+    closeBtn.addEventListener('click', close);
+    overlay.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', close));
 }
 
 function updateModeTag() {

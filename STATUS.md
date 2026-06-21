@@ -132,6 +132,9 @@ WearGait-PD dataset instead of the synthetic gait model.
 - **Unified source selector** (user feedback): one contextual dropdown in the top-left slot —
   "Participant" (PPMI) in the schematic modes, "WearGait recording" (the 42 Synapse clips) in
   WearGait — instead of a greyed-out Participant box plus a separate bottom clip picker.
+- **"How to read this" info overlay** (user feedback): a header button opens a modal (dimmed/blurred
+  backdrop, centered dialog; closes via ✕ / backdrop / Esc) explaining schematic-vs-IMU motion, the
+  five motion tests, the 3D controls, the four charts, and what to look for.
 
 ### Pending / next
 - More WearGait coverage (HurriedPace / TandemGait, turns); review the 2 quality-flagged clips.
