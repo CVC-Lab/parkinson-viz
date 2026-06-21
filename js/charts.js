@@ -126,7 +126,8 @@ export function gaitCyclePlot(container, patient, phase) {
         { x, y: right, mode: 'lines', name: 'Right arm', line: { color: '#c2533f', width: 2.5 } },
     ];
     Plotly.react(container, traces, theme({
-        title: 'Arm-swing waveform over gait cycle',
+        title: patient.PATNO == null ? 'Arm-swing waveform · schematic (cohort average)'
+                                     : 'Arm-swing waveform · schematic (modeled)',
         xaxis: Object.assign(axis('Gait-cycle phase'), {
             range: [0, 2 * Math.PI],
             tickvals: [0, Math.PI / 2, Math.PI, 1.5 * Math.PI, 2 * Math.PI],
@@ -151,7 +152,8 @@ function phaseShape(phase) {
 
 // ── Real measured arm-swing waveform (WearGait clip) ───────────────────────
 export function realWaveform(container, clip, phase01) {
-    const fr = clip.frames, n = fr.length, R2D = 180 / Math.PI;
+    const fr = (clip && clip.frames) || [], n = fr.length, R2D = 180 / Math.PI;
+    if (n < 2) return emptyPlot(container, 'Clip too short to plot');
     const x = [], left = [], right = [];
     for (let i = 0; i < n; i++) {
         x.push(i / (n - 1));
@@ -190,9 +192,9 @@ export function qualityRadar(container, patient) {
     Plotly.react(container, [{
         type: 'scatterpolar', r: [...vals, vals[0]], theta: [...cats, cats[0]],
         fill: 'toself', fillcolor: 'rgba(74,111,165,0.18)',
-        line: { color: '#4a6fa5', width: 2 }, name: 'Participant',
+        line: { color: '#4a6fa5', width: 2 }, name: patient.PATNO == null ? 'Cohort average' : 'Participant',
     }], theme({
-        title: 'Movement-quality profile',
+        title: patient.PATNO == null ? 'Movement-quality profile (cohort average)' : 'Movement-quality profile',
         margin: { l: 56, r: 56, t: 44, b: 36 },
         polar: {
             bgcolor: 'rgba(0,0,0,0)',

@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ── Anatomical proportions (metres, ~1.72 m figure) ────────────────────────
-const HIP_Y = 0.95;          // pelvis height (root origin)
+const HIP_Y = 0.97;          // pelvis height (root origin); set so the feet rest on the ground (y≈0)
 const TORSO_LEN = 0.50;      // pelvis → shoulder line
 const SHOULDER_HALF = 0.185; // half shoulder width
 const NECK_LEN = 0.095;
@@ -99,6 +99,18 @@ export class Figure3D {
         this.container.appendChild(r.domElement);
         r.domElement.style.display = 'block';
         r.domElement.style.touchAction = 'none';
+
+        // Recover gracefully if the browser drops the WebGL context (tab backgrounding, GPU reset).
+        r.domElement.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault();
+            if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }
+            const cap = document.getElementById('figure-caption');
+            if (cap) cap.textContent = 'Restoring 3D view…';
+        }, false);
+        r.domElement.addEventListener('webglcontextrestored', () => {
+            this._lastT = 0;
+            this.start();   // onFrame resumes and overwrites the caption
+        }, false);
     }
 
     _initScene() {
@@ -231,7 +243,7 @@ export class Figure3D {
 
         // gentle resting abduction so arms hang outward and clear the torso
         shoulder.rotation.z = -side * 0.18;
-        elbow.rotation.x = 0.10;
+        elbow.rotation.x = -0.10;   // forearm bends slightly forward at rest (anatomical)
         return { shoulder, elbow, wrist, mat };
     }
 
@@ -299,7 +311,8 @@ export class Figure3D {
         arm.shoulder.rotation.x = a.shoulder || 0;
         // Negative-side keeps both arms abducted *outward*; shoulderOut adds more.
         arm.shoulder.rotation.z = -side * (0.18 + (a.shoulderOut || 0));
-        arm.elbow.rotation.x = 0.10 + (a.elbow || 0);
+        // Elbow flexion bends the forearm FORWARD (+Z); rotation about +X would hyperextend it.
+        arm.elbow.rotation.x = -(0.10 + (a.elbow || 0));
         arm.wrist.rotation.x = a.tremor || 0;
         arm.wrist.rotation.z = a.tremorZ || 0;
     }

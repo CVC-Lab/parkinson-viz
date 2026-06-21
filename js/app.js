@@ -115,7 +115,9 @@ function captionFor(type, ph) {
 async function loadManifest() {
     if (state.manifest) return;
     const r = await fetch('data/motion_clips/index.json');
-    state.manifest = (await r.json()).clips;
+    if (!r.ok) throw new Error(`clip index unavailable (${r.status})`);
+    const payload = await r.json();
+    state.manifest = Array.isArray(payload.clips) ? payload.clips : [];
     const sel = $('weargait-select');
     sel.innerHTML = '';
     state.manifest.forEach(c => {
@@ -151,6 +153,7 @@ async function enterWearGait() {
         if (id) { sel.value = id; await loadClip(id); }
     } catch (e) {
         console.error('WearGait load failed:', e);
+        if (state.motionType === 'weargait') { state.clipError = true; updateModeTag(); }
     }
     state.clipLoading = false;
 }
@@ -190,7 +193,9 @@ function wireControls() {
     speed.addEventListener('input', (e) => {
         state.speed = parseFloat(e.target.value);
         $('speed-display').textContent = `${state.speed.toFixed(1)}×`;
+        e.target.setAttribute('aria-valuetext', `${state.speed.toFixed(1)}×`);   // SR reads "1.0×" not "1"
     });
+    speed.setAttribute('aria-valuetext', `${state.speed.toFixed(1)}×`);
 
     $('play-button').addEventListener('click', () => setPlaying(true));
     $('pause-button').addEventListener('click', () => setPlaying(false));

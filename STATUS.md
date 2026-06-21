@@ -120,8 +120,15 @@ WearGait-PD dataset instead of the synthetic gait model.
 - **A11y / docs:** `prefers-reduced-motion` starts paused + disables CSS transitions; READMEs
   de-overclaim "Digital Sensor" data, fix clone/Live-Demo URLs; STATUS UPDRS-III count 79→78;
   `FIXES_APPLIED.md` marked historical.
-- Deferred (low): 31 polish items (label units, single-frame guards, WebGL context-loss,
-  on-demand rendering, finer aria labels, schematic-title qualifier).
+- Deferred (low, remaining): asym-chip units, negative-dual-task rescale, on-demand rendering,
+  build-time Control UPDRS-III plausibility flag, UPDRS-II staleness guard, SEX/HANDED legend.
+
+### Polish pass (2026-06-21)
+- **Elbow direction fixed** (user-reported): the forearm now flexes forward (+Z) — `elbow.rotation.x`
+  applied +X, which hyperextended it backward. Also raised the figure so the feet rest on the ground.
+- WebGL context-loss/restore handler; `realWaveform` & `loadManifest` guard short/missing clips;
+  radar + gait-cycle charts label the cohort-average case and tag the waveform "schematic"; speed
+  slider `aria-valuetext`, status pill `role=status`/`aria-live`, Playback/Status groups.
 
 ### Pending / next
 - More WearGait coverage (HurriedPace / TandemGait, turns); review the 2 quality-flagged clips.

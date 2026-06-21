@@ -65,8 +65,8 @@
                 <input type="range" id="animation-speed" min="0.1" max="3.0" step="0.1" value="1.0">
             </div>
 
-            <div class="control control--buttons">
-                <label>Playback</label>
+            <div class="control control--buttons" role="group" aria-label="Playback">
+                <label aria-hidden="true">Playback</label>
                 <div class="btn-row">
                     <button id="play-button" class="btn btn--primary" aria-pressed="true">Play</button>
                     <button id="pause-button" class="btn">Pause</button>
@@ -74,9 +74,9 @@
                 </div>
             </div>
 
-            <div class="control control--status">
-                <label>Status</label>
-                <span id="animation-status" class="status-pill is-playing">Playing</span>
+            <div class="control control--status" role="group" aria-label="Status">
+                <label aria-hidden="true">Status</label>
+                <span id="animation-status" class="status-pill is-playing" role="status" aria-live="polite">Playing</span>
             </div>
 
             <div class="control" id="weargait-control" style="display:none; grid-column: 1 / -1;">
