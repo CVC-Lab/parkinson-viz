@@ -184,9 +184,13 @@ function wireControls() {
         state.clipError = false;
         updateModeTag();
         const wg = state.motionType === 'weargait';
-        $('weargait-control').style.display = wg ? '' : 'none';
-        $('patient-select').disabled = wg;              // WearGait is driven by its own clip picker, not the PPMI participant
-        $('patient-hint').hidden = !wg;
+        // One contextual source selector in the same slot: PPMI participants for the schematic
+        // modes, WearGait recordings for WearGait. No separate/greyed dropdown.
+        $('patient-select').hidden = wg;
+        $('weargait-select').hidden = !wg;
+        $('source-hint').hidden = !wg;
+        $('source-label').textContent = wg ? 'WearGait recording' : 'Participant';
+        $('source-label').setAttribute('for', wg ? 'weargait-select' : 'patient-select');
         if (wg) { drawAllCharts(); enterWearGait(); }   // drop PPMI highlight now; clip loads async
         else { applyPatient(); drawAllCharts(); }       // restore PPMI readout + charts
     });

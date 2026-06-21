@@ -43,11 +43,12 @@
         <!-- ───────────────────────── Controls ───────────────────────── -->
         <section class="controls" aria-label="Visualization controls">
             <div class="control">
-                <label for="patient-select">Participant</label>
+                <label id="source-label" for="patient-select">Participant</label>
                 <select id="patient-select">
                     <option value="">Cohort average</option>
                 </select>
-                <small id="patient-hint" class="control-hint" hidden>Not used in WearGait — choose a recording below ↓</small>
+                <select id="weargait-select" hidden></select>
+                <small id="source-hint" class="control-hint" hidden>Synapse WearGait recording (IMU-derived) — selects the motion shown</small>
             </div>
 
             <div class="control">
@@ -80,10 +81,6 @@
                 <span id="animation-status" class="status-pill is-playing" role="status" aria-live="polite">Playing</span>
             </div>
 
-            <div class="control" id="weargait-control" style="display:none; grid-column: 1 / -1;">
-                <label for="weargait-select">WearGait recording — selects the motion shown (Synapse, IMU-derived)</label>
-                <select id="weargait-select"></select>
-            </div>
         </section>
 
         <!-- ───────────────────── Stage: 3D figure + clinical card ───────────────────── -->

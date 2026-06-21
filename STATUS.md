@@ -129,6 +129,9 @@ WearGait-PD dataset instead of the synthetic gait model.
 - WebGL context-loss/restore handler; `realWaveform` & `loadManifest` guard short/missing clips;
   radar + gait-cycle charts label the cohort-average case and tag the waveform "schematic"; speed
   slider `aria-valuetext`, status pill `role=status`/`aria-live`, Playback/Status groups.
+- **Unified source selector** (user feedback): one contextual dropdown in the top-left slot —
+  "Participant" (PPMI) in the schematic modes, "WearGait recording" (the 42 Synapse clips) in
+  WearGait — instead of a greyed-out Participant box plus a separate bottom clip picker.
 
 ### Pending / next
 - More WearGait coverage (HurriedPace / TandemGait, turns); review the 2 quality-flagged clips.
